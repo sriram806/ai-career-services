@@ -86,8 +86,8 @@ export function proxyTo(
     }
 
     // 2. Resolve target URL by appending the request path
-    // Remove the gateway API prefix (e.g. /api/v1/auth/login -> /login)
-    const path = request.url.replace(/^\/api\/v1\/[a-zA-Z0-9_-]+/, '');
+    // Remove the gateway API prefix (e.g. /api/v1/auth/login -> /auth/login)
+    const path = request.url.replace(/^\/api\/v1/, '');
     const targetUrl = `${serviceUrl}${path}`;
 
     // 3. Populate correlation, request, and client headers
@@ -154,8 +154,9 @@ export function proxyTo(
               reject(err);
             }
           },
-          onResponse: (_request, _reply) => {
+          onResponse: (_request, _reply, res: any) => {
             recordSuccess(serviceName);
+            _reply.send(res.stream);
             resolve();
           },
         });
@@ -164,6 +165,7 @@ export function proxyTo(
 
     try {
       await executeProxy();
+      return reply;
     } catch (err: any) {
       request.log.error({ err, targetUrl }, `Failed to proxy request to ${serviceName}`);
       throw ErrorFactory.externalServiceError(serviceName, err);

@@ -273,9 +273,11 @@ export class AuthService {
       throw ErrorFactory.forbidden('Please verify your email address before logging in.');
     }
 
-    // Check if MFA is enabled
+    // Check if MFA is enabled or if the user is an admin role
     const mfa = await this.mfaRepository.findByUserId(user.id);
-    if (mfa && (mfa.totpEnabled || mfa.emailEnabled)) {
+    const isAdminRole = ['super_administrator', 'administrator', 'platform_admin', 'super_admin'].includes(user.role);
+    
+    if ((mfa && (mfa.totpEnabled || mfa.emailEnabled)) || isAdminRole) {
       // MFA required - generate temporary verification session
       const tempToken = crypto.randomBytes(32).toString('hex');
       const tempSessionData = {
@@ -292,8 +294,8 @@ export class AuthService {
         300 // 5 minutes
       );
 
-      // If only Email MFA is enabled, auto-trigger sending OTP
-      if (mfa.emailEnabled && !mfa.totpEnabled) {
+      // If only Email MFA is enabled, or if it's forced by role without TOTP, auto-trigger sending OTP
+      if ((mfa?.emailEnabled && !mfa?.totpEnabled) || (isAdminRole && !mfa?.totpEnabled)) {
         await this.otpService.generateOtp(user.id, 'mfa');
       }
 
