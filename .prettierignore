@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.turbo
+.husky
+*.lock
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+docker-compose.yml

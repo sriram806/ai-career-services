@@ -1,0 +1,486 @@
+# ============================================
+# AI Career OS — Full Docker Compose Stack
+# Includes infrastructure + every service + client
+# ============================================
+
+services:
+  # ─── PostgreSQL ─────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: acos-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ai_career_os
+      POSTGRES_PASSWORD: changeme_postgres
+      POSTGRES_DB: ai_career_os
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_career_os"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - acos-network
+
+  # ─── MongoDB ────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: acos-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ai_career_os
+      MONGO_INITDB_ROOT_PASSWORD: changeme_mongo
+      MONGO_INITDB_DATABASE: ai_career_os
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - acos-network
+
+  # ─── Redis ──────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: acos-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass changeme_redis --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "changeme_redis", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - acos-network
+
+  # ─── Node Microservices ─────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        SERVICE_NAME: gateway
+    container_name: acos-gateway
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+      AUTH_SERVICE_URL: http://auth-service:3001
+      USER_SERVICE_URL: http://user-service:3002
+      CAREER_SERVICE_URL: http://career-service:3003
+      EXAM_SERVICE_URL: http://exam-service:3004
+      AI_SERVICE_URL: http://ai-service:3005
+      ORGANIZATION_SERVICE_URL: http://organization-service:3006
+      BILLING_SERVICE_URL: http://billing-service:3007
+      NOTIFICATION_SERVICE_URL: http://notification-service:3008
+      ADMIN_SERVICE_URL: http://admin-service:3009
+      ANALYTICS_SERVICE_URL: http://analytics-service:3010
+      CORS_ORIGIN: http://localhost:3100
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      career-service:
+        condition: service_started
+      exam-service:
+        condition: service_started
+      ai-service:
+        condition: service_started
+      organization-service:
+        condition: service_started
+      billing-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      admin-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
+    networks:
+      - acos-network
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        SERVICE_NAME: auth-service
+    container_name: acos-auth-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        SERVICE_NAME: user-service
+    container_name: acos-user-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  career-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        SERVICE_NAME: career-service
+    container_name: acos-career-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  exam-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        SERVICE_NAME: exam-service
+    container_name: acos-exam-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3004
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  organization-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        SERVICE_NAME: organization-service
+    container_name: acos-organization-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3006
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  billing-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        SERVICE_NAME: billing-service
+    container_name: acos-billing-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3007
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        SERVICE_NAME: notification-service
+    container_name: acos-notification-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3008
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+    ports:
+      - "3008:3008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  admin-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        SERVICE_NAME: admin-service
+    container_name: acos-admin-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3009
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+    ports:
+      - "3009:3009"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  # ─── Python Microservices ───────────────────────────
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+      args:
+        SERVICE_NAME: ai-service
+    container_name: acos-ai-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: 3005
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+      args:
+        SERVICE_NAME: analytics-service
+    container_name: acos-analytics-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: 3010
+      POSTGRES_HOST: postgres
+      MONGO_HOST: mongodb
+      REDIS_HOST: redis
+      MONGO_URI: mongodb://ai_career_os:changeme_mongo@mongodb:27017/ai_career_os?authSource=admin
+    ports:
+      - "3010:3010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  # ─── Frontend (Next.js Client) ─────────────────────
+  client:
+    build:
+      context: ../
+      dockerfile: services/Dockerfile.client
+    container_name: acos-client
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3000
+    ports:
+      - "3100:3000"
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - acos-network
+
+  # ─── Developer Tools ────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: acos-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@aicareer.os
+      PGADMIN_DEFAULT_PASSWORD: changeme_pgadmin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: acos-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ai_career_os
+      ME_CONFIG_MONGODB_ADMINPASSWORD: changeme_mongo
+      ME_CONFIG_MONGODB_URL: mongodb://ai_career_os:changeme_mongo@mongodb:27017/
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - acos-network
+
+# ─── Volumes ─────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  mongo_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+# ─── Networks ────────────────────────────────────────
+networks:
+  acos-network:
+    driver: bridge
+    name: acos-network

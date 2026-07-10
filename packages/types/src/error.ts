@@ -1,0 +1,97 @@
+/**
+ * Standardized error codes across all microservices.
+ * Using string enums for readability in logs and API responses.
+ */
+export enum ErrorCode {
+  // ─── Generic ────────────────────────────────────────
+  INTERNAL_SERVER_ERROR = 'INTERNAL_SERVER_ERROR',
+  BAD_REQUEST = 'BAD_REQUEST',
+  UNAUTHORIZED = 'UNAUTHORIZED',
+  FORBIDDEN = 'FORBIDDEN',
+  NOT_FOUND = 'NOT_FOUND',
+  CONFLICT = 'CONFLICT',
+  UNPROCESSABLE_ENTITY = 'UNPROCESSABLE_ENTITY',
+  TOO_MANY_REQUESTS = 'TOO_MANY_REQUESTS',
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+  GATEWAY_TIMEOUT = 'GATEWAY_TIMEOUT',
+
+  // ─── Validation ─────────────────────────────────────
+  VALIDATION_ERROR = 'VALIDATION_ERROR',
+  INVALID_INPUT = 'INVALID_INPUT',
+  MISSING_REQUIRED_FIELD = 'MISSING_REQUIRED_FIELD',
+  INVALID_FORMAT = 'INVALID_FORMAT',
+
+  // ─── Authentication ─────────────────────────────────
+  INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+  TOKEN_EXPIRED = 'TOKEN_EXPIRED',
+  TOKEN_INVALID = 'TOKEN_INVALID',
+  TOKEN_REVOKED = 'TOKEN_REVOKED',
+  SESSION_EXPIRED = 'SESSION_EXPIRED',
+
+  // ─── Authorization ──────────────────────────────────
+  INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS',
+  ROLE_REQUIRED = 'ROLE_REQUIRED',
+
+  // ─── Resource ───────────────────────────────────────
+  RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND',
+  RESOURCE_ALREADY_EXISTS = 'RESOURCE_ALREADY_EXISTS',
+  RESOURCE_DELETED = 'RESOURCE_DELETED',
+
+  // ─── Database ───────────────────────────────────────
+  DATABASE_ERROR = 'DATABASE_ERROR',
+  DATABASE_CONNECTION_ERROR = 'DATABASE_CONNECTION_ERROR',
+  DATABASE_QUERY_ERROR = 'DATABASE_QUERY_ERROR',
+  DATABASE_TIMEOUT = 'DATABASE_TIMEOUT',
+
+  // ─── External Service ──────────────────────────────
+  EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
+  EXTERNAL_SERVICE_TIMEOUT = 'EXTERNAL_SERVICE_TIMEOUT',
+  EXTERNAL_SERVICE_UNAVAILABLE = 'EXTERNAL_SERVICE_UNAVAILABLE',
+
+  // ─── Rate Limiting ─────────────────────────────────
+  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
+
+  // ─── File ──────────────────────────────────────────
+  FILE_TOO_LARGE = 'FILE_TOO_LARGE',
+  FILE_TYPE_NOT_ALLOWED = 'FILE_TYPE_NOT_ALLOWED',
+  FILE_UPLOAD_ERROR = 'FILE_UPLOAD_ERROR',
+}
+
+/** HTTP status code mapping for error codes */
+export const ERROR_STATUS_MAP: Record<ErrorCode, number> = {
+  [ErrorCode.INTERNAL_SERVER_ERROR]: 500,
+  [ErrorCode.BAD_REQUEST]: 400,
+  [ErrorCode.UNAUTHORIZED]: 401,
+  [ErrorCode.FORBIDDEN]: 403,
+  [ErrorCode.NOT_FOUND]: 404,
+  [ErrorCode.CONFLICT]: 409,
+  [ErrorCode.UNPROCESSABLE_ENTITY]: 422,
+  [ErrorCode.TOO_MANY_REQUESTS]: 429,
+  [ErrorCode.SERVICE_UNAVAILABLE]: 503,
+  [ErrorCode.GATEWAY_TIMEOUT]: 504,
+  [ErrorCode.VALIDATION_ERROR]: 422,
+  [ErrorCode.INVALID_INPUT]: 400,
+  [ErrorCode.MISSING_REQUIRED_FIELD]: 400,
+  [ErrorCode.INVALID_FORMAT]: 400,
+  [ErrorCode.INVALID_CREDENTIALS]: 401,
+  [ErrorCode.TOKEN_EXPIRED]: 401,
+  [ErrorCode.TOKEN_INVALID]: 401,
+  [ErrorCode.TOKEN_REVOKED]: 401,
+  [ErrorCode.SESSION_EXPIRED]: 401,
+  [ErrorCode.INSUFFICIENT_PERMISSIONS]: 403,
+  [ErrorCode.ROLE_REQUIRED]: 403,
+  [ErrorCode.RESOURCE_NOT_FOUND]: 404,
+  [ErrorCode.RESOURCE_ALREADY_EXISTS]: 409,
+  [ErrorCode.RESOURCE_DELETED]: 410,
+  [ErrorCode.DATABASE_ERROR]: 500,
+  [ErrorCode.DATABASE_CONNECTION_ERROR]: 503,
+  [ErrorCode.DATABASE_QUERY_ERROR]: 500,
+  [ErrorCode.DATABASE_TIMEOUT]: 504,
+  [ErrorCode.EXTERNAL_SERVICE_ERROR]: 502,
+  [ErrorCode.EXTERNAL_SERVICE_TIMEOUT]: 504,
+  [ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE]: 503,
+  [ErrorCode.RATE_LIMIT_EXCEEDED]: 429,
+  [ErrorCode.FILE_TOO_LARGE]: 413,
+  [ErrorCode.FILE_TYPE_NOT_ALLOWED]: 415,
+  [ErrorCode.FILE_UPLOAD_ERROR]: 500,
+};

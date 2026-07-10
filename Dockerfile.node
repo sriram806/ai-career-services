@@ -1,0 +1,55 @@
+# ============================================
+# Node.js Microservice Dockerfile
+# Multi-stage build for production optimization
+# ============================================
+
+# ─── Stage 1: Build ──────────────────────────────────
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy workspace root files
+COPY package.json package-lock.json* turbo.json ./
+COPY tsconfig.base.json ./
+
+# Copy all package.json files for workspace resolution
+COPY packages/ ./packages/
+COPY apps/ ./apps/
+
+# Install dependencies
+RUN npm ci --ignore-scripts
+
+# Build the specific service
+ARG SERVICE_NAME
+RUN npx turbo run build --filter=@ai-career-os/${SERVICE_NAME}...
+
+# ─── Stage 2: Production ─────────────────────────────
+FROM node:20-alpine AS production
+
+# Security: Run as non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
+
+WORKDIR /app
+
+# Copy built artifacts
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+ARG SERVICE_NAME
+COPY --from=builder /app/apps/${SERVICE_NAME}/dist ./apps/${SERVICE_NAME}/dist
+COPY --from=builder /app/apps/${SERVICE_NAME}/package.json ./apps/${SERVICE_NAME}/
+
+# Set environment
+ENV NODE_ENV=production
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:${PORT:-3000}/health || exit 1"]
+
+# Start the service
+ARG SERVICE_NAME
+WORKDIR /app/apps/${SERVICE_NAME}
+CMD ["node", "dist/server.js"]
