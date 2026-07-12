@@ -312,25 +312,6 @@ export const userRoles = pgTable('user_roles', {
   };
 });
 
-// ─── Passkeys Table ────────────────────────────────
-export const passkeys = pgTable('passkeys', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  credentialId: varchar('credential_id', { length: 512 }).notNull(),
-  publicKey: varchar('public_key', { length: 2048 }).notNull(),
-  counter: integer('counter').notNull().default(0),
-  transports: jsonb('transports').notNull().default([]),
-  deviceType: varchar('device_type', { length: 100 }),
-  backedUp: boolean('backed_up').notNull().default(false),
-  nickname: varchar('nickname', { length: 255 }),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  lastUsedAt: timestamp('last_used_at', { withTimezone: true }).notNull().defaultNow(),
-}, (table) => {
-  return {
-    credentialIdUniqueIdx: uniqueIndex('passkeys_credential_id_unique_idx').on(table.credentialId),
-    userIdIdx: index('passkeys_user_id_idx').on(table.userId),
-  };
-});
 
 // ─── MFA Settings Table ────────────────────────────
 export const mfaSettings = pgTable('mfa_settings', {

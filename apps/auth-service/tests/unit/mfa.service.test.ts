@@ -5,7 +5,7 @@ import { Totp } from '../../src/utils/totp';
 describe('MfaService Unit Tests', () => {
   let mockMfaRepository: any;
   let mockAuditRepository: any;
-  let mockOtpService: any;
+
   let mockRedisClient: any;
   let service: MfaService;
   let redisStore: Record<string, string>;
@@ -37,9 +37,7 @@ describe('MfaService Unit Tests', () => {
       createSecurityEvent: vi.fn().mockResolvedValue(undefined),
     };
 
-    mockOtpService = {
-      verifyOtp: vi.fn().mockResolvedValue(true),
-    };
+
 
     mockRedisClient = {
       get: vi.fn().mockImplementation((key) => Promise.resolve(redisStore[key] || null)),
@@ -53,7 +51,7 @@ describe('MfaService Unit Tests', () => {
       }),
     };
 
-    service = new MfaService(mockMfaRepository, mockAuditRepository, mockOtpService, mockRedisClient);
+    service = new MfaService(mockMfaRepository, mockAuditRepository, mockRedisClient);
   });
 
   it('should initiate TOTP setup and store temporary secret in Redis', async () => {

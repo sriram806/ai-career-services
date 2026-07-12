@@ -122,7 +122,7 @@ export class EmailService {
    */
   async sendVerificationEmail(email: string, username: string, token: string): Promise<void> {
     // Determine verification link (can be configured; defaults to typical gateway/client endpoint)
-    const verificationLink = `http://localhost:3100/auth/verify-email?token=${token}`;
+    const verificationLink = `http://localhost:3000/verify-email?token=${token}`;
 
     await this.sendEmail({
       to: email,
@@ -140,7 +140,7 @@ export class EmailService {
    * Convenience helper to send password reset link.
    */
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
-    const resetLink = `http://localhost:3100/auth/reset-password?token=${token}`;
+    const resetLink = `http://localhost:3000/reset-password?token=${token}`;
 
     await this.sendEmail({
       to: email,

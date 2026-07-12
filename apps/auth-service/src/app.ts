@@ -15,7 +15,7 @@ import { PostgresConnection, RedisConnection } from '@ai-career-os/database';
 // ─── Repositories ─────────────────────────────────
 import { UserRepository } from './repositories/user.repository';
 import { SessionRepository } from './repositories/session.repository';
-import { OtpRepository } from './repositories/otp.repository';
+
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { AuditRepository } from './repositories/audit.repository';
 import { PasswordHistoryRepository } from './repositories/password-history.repository';
@@ -25,14 +25,13 @@ import { TrustedDeviceRepository } from './repositories/trusted-device.repositor
 import { LoginAttemptRepository } from './repositories/login-attempt.repository';
 import { OAuthRepository } from './repositories/oauth.repository';
 import { MfaRepository } from './repositories/mfa.repository';
-import { PasskeyRepository } from './repositories/passkey.repository';
 import { RbacRepository } from './repositories/rbac.repository';
 
 // ─── Services ─────────────────────────────────────
 import { EmailService } from './services/email.service';
 import { PasswordService } from './services/password.service';
 import { JwtService } from './services/jwt.service';
-import { OtpService } from './services/otp.service';
+
 import { AuthService } from './services/auth.service';
 import { SessionService } from './services/session.service';
 import { EmailVerificationService } from './services/email-verification.service';
@@ -40,7 +39,6 @@ import { PasswordResetService } from './services/password-reset.service';
 import { TrustedDeviceService } from './services/trusted-device.service';
 import { OAuthService } from './services/oauth.service';
 import { MfaService } from './services/mfa.service';
-import { PasskeyService } from './services/passkey.service';
 import { RbacService } from './services/rbac.service';
 
 // ─── Controller & Routes ──────────────────────────
@@ -106,7 +104,7 @@ export async function buildApp(logger: any): Promise<any> {
   // ─── Repository Layer ───────────────────────────
   const userRepository = new UserRepository(db);
   const sessionRepository = new SessionRepository(db);
-  const otpRepository = new OtpRepository(db);
+
   const refreshTokenRepository = new RefreshTokenRepository(db);
   const auditRepository = new AuditRepository(db);
   const passwordHistoryRepository = new PasswordHistoryRepository(db);
@@ -116,7 +114,6 @@ export async function buildApp(logger: any): Promise<any> {
   const loginAttemptRepository = new LoginAttemptRepository(db);
   const oauthRepository = new OAuthRepository(db);
   const mfaRepository = new MfaRepository(db);
-  const passkeyRepository = new PasskeyRepository(db);
   const rbacRepository = new RbacRepository(db);
 
   // ─── Service Layer ──────────────────────────────
@@ -140,7 +137,7 @@ export async function buildApp(logger: any): Promise<any> {
     audience: 'ai-career-os-app',
   });
 
-  const otpService = new OtpService(otpRepository, userRepository, redisClient, emailService);
+
   const sessionService = new SessionService(sessionRepository);
 
   const trustedDeviceService = new TrustedDeviceService(
@@ -149,8 +146,8 @@ export async function buildApp(logger: any): Promise<any> {
   );
 
   const rbacService = new RbacService(rbacRepository, auditRepository, redisClient);
-  const mfaService = new MfaService(mfaRepository, auditRepository, otpService, redisClient);
-  const passkeyService = new PasskeyService(passkeyRepository, userRepository, auditRepository, redisClient);
+  const mfaService = new MfaService(mfaRepository, auditRepository, redisClient);
+
   const oauthService = new OAuthService(
     oauthRepository,
     userRepository,
@@ -196,7 +193,6 @@ export async function buildApp(logger: any): Promise<any> {
     auditRepository,
     passwordService,
     jwtService,
-    otpService,
     trustedDeviceService,
     rbacService,
     mfaRepository,
@@ -208,11 +204,10 @@ export async function buildApp(logger: any): Promise<any> {
     authService,
     emailVerificationService,
     passwordResetService,
-    otpService,
     sessionService,
     trustedDeviceService,
     mfaService,
-    passkeyService,
+
     rbacService,
     oauthService,
     auditRepository,
@@ -225,7 +220,6 @@ export async function buildApp(logger: any): Promise<any> {
   app.decorate('redis', redis);
   app.decorate('userRepository', userRepository);
   app.decorate('sessionRepository', sessionRepository);
-  app.decorate('otpRepository', otpRepository);
   app.decorate('refreshTokenRepository', refreshTokenRepository);
   app.decorate('auditRepository', auditRepository);
   app.decorate('authService', authService);
@@ -235,14 +229,18 @@ export async function buildApp(logger: any): Promise<any> {
   app.decorate('passwordResetService', passwordResetService);
   app.decorate('trustedDeviceService', trustedDeviceService);
   app.decorate('mfaService', mfaService);
-  app.decorate('passkeyService', passkeyService);
+
   app.decorate('rbacService', rbacService);
   app.decorate('oauthService', oauthService);
 
   // ─── Plugins & Security Middleware ──────────────
   await app.register(helmet, { contentSecurityPolicy: false });
+  const corsOrigins = config.CORS_ORIGIN
+    ? config.CORS_ORIGIN.split(',').map((o) => o.trim())
+    : ['http://localhost:3000'];
+
   await app.register(cors, {
-    origin: config.CORS_ORIGIN,
+    origin: corsOrigins,
     credentials: true,
   });
   await app.register(cookie);

@@ -54,7 +54,19 @@ export const gatewayRoutes: FastifyPluginCallback = (
     proxyTo(config.AUTH_SERVICE_URL, 'auth-service'),
   );
 
-  // 2. Profile Reads (/profile/* GET) -> Moderate
+  // 2. Profile Reads (/profile GET) -> Moderate
+  fastify.get(
+    '/api/v1/profile',
+    {
+      config: { rateLimit: moderateLimit },
+      schema: {
+        description: 'Candidate profile reading base endpoint',
+        tags: ['Profile'],
+      },
+    },
+    proxyTo(config.USER_SERVICE_URL, 'user-service'),
+  );
+
   fastify.get(
     '/api/v1/profile/*',
     {
@@ -67,7 +79,18 @@ export const gatewayRoutes: FastifyPluginCallback = (
     proxyTo(config.USER_SERVICE_URL, 'user-service'),
   );
 
-  // 3. Profile Writes (/profile/* POST/PUT/PATCH/DELETE) -> Standard
+  // 3. Profile Writes (/profile POST/PUT/PATCH/DELETE) -> Standard
+  fastify.route({
+    method: ['POST', 'PUT', 'PATCH', 'DELETE'],
+    url: '/api/v1/profile',
+    config: { rateLimit: standardLimit },
+    schema: {
+      description: 'Candidate profile modification base endpoint',
+      tags: ['Profile'],
+    },
+    handler: proxyTo(config.USER_SERVICE_URL, 'user-service'),
+  });
+
   fastify.route({
     method: ['POST', 'PUT', 'PATCH', 'DELETE'],
     url: '/api/v1/profile/*',

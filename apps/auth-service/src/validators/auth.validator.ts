@@ -43,22 +43,7 @@ export const loginSchema = z.object({
   rememberMe: z.boolean().optional().default(false),
 });
 
-// ─── OTP Verify ────────────────────────────────────
-export const otpVerifySchema = z.object({
-  userId: z.string().uuid('Invalid user identifier format'),
-  code: z
-    .string()
-    .length(6, 'Verification code must be exactly 6 digits')
-    .regex(/^\d+$/, 'Verification code must only contain numbers'),
-});
 
-// ─── OTP Request ───────────────────────────────────
-export const otpRequestSchema = z.object({
-  userId: z.string().uuid('Invalid user identifier format'),
-  purpose: z.enum(['email_verification', 'password_reset', 'mfa'], {
-    errorMap: () => ({ message: 'Invalid OTP verification purpose' }),
-  }),
-});
 
 // ─── Change Password (authenticated) ───────────────
 export const changePasswordSchema = z.object({
@@ -103,10 +88,6 @@ export const mfaDisableSchema = z.object({
   code: z.string().min(1),
 });
 
-// ─── Passkey Rename ───────────────────────────────
-export const passkeyRenameSchema = z.object({
-  nickname: z.string().min(1).max(100),
-});
 
 // ─── OAuth Initiate ───────────────────────────────
 export const oauthInitiateSchema = z.object({
@@ -121,8 +102,7 @@ export const oauthUnlinkSchema = z.object({
 // ─── Inferred DTO Types ───────────────────────────
 export type RegisterDto = z.infer<typeof registerSchema>;
 export type LoginDto = z.infer<typeof loginSchema>;
-export type OtpVerifyDto = z.infer<typeof otpVerifySchema>;
-export type OtpRequestDto = z.infer<typeof otpRequestSchema>;
+
 export type ChangePasswordDto = z.infer<typeof changePasswordSchema>;
 export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;

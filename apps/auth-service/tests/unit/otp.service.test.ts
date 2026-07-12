@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { OtpService } from '../../src/services/otp.service';
 import type { OtpRepository } from '../../src/repositories/otp.repository';
+import type { UserRepository } from '../../src/repositories/user.repository';
+import type { EmailService } from '../../src/services/email.service';
 import type { Redis } from 'ioredis';
 
 describe('OtpService Unit Tests', () => {
   let mockOtpRepository: any;
+  let mockUserRepository: any;
+  let mockEmailService: any;
   let mockRedisClient: any;
   let service: OtpService;
   let store: Record<string, string>;
@@ -39,9 +43,19 @@ describe('OtpService Unit Tests', () => {
       ttl: vi.fn().mockResolvedValue(60),
     };
 
+    mockUserRepository = {
+      findById: vi.fn().mockResolvedValue({ id: 'user-uuid', email: 'user@example.com' }),
+    };
+
+    mockEmailService = {
+      sendOtpEmail: vi.fn().mockResolvedValue(undefined),
+    };
+
     service = new OtpService(
       mockOtpRepository as unknown as OtpRepository,
+      mockUserRepository as unknown as UserRepository,
       mockRedisClient as unknown as Redis,
+      mockEmailService as unknown as EmailService,
     );
   });
 

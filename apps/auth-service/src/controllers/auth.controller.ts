@@ -3,11 +3,9 @@ import { createSuccessResponse } from '@ai-career-os/common';
 import type { AuthService } from '../services/auth.service';
 import type { EmailVerificationService } from '../services/email-verification.service';
 import type { PasswordResetService } from '../services/password-reset.service';
-import type { OtpService } from '../services/otp.service';
 import type { SessionService } from '../services/session.service';
 import type { TrustedDeviceService } from '../services/trusted-device.service';
 import type { MfaService } from '../services/mfa.service';
-import type { PasskeyService } from '../services/passkey.service';
 import type { RbacService } from '../services/rbac.service';
 import type { OAuthService } from '../services/oauth.service';
 import type { AuditRepository } from '../repositories/audit.repository';
@@ -17,8 +15,6 @@ import { validate } from '@ai-career-os/validation';
 import {
   registerSchema,
   loginSchema,
-  otpVerifySchema,
-  otpRequestSchema,
   changePasswordSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
@@ -27,7 +23,6 @@ import {
   mfaEnableSchema,
   mfaVerifySchema,
   mfaDisableSchema,
-  passkeyRenameSchema,
   oauthInitiateSchema,
   oauthUnlinkSchema,
 } from '../validators/auth.validator';
@@ -50,11 +45,10 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly emailVerificationService: EmailVerificationService,
     private readonly passwordResetService: PasswordResetService,
-    private readonly otpService: OtpService,
     private readonly sessionService: SessionService,
     private readonly trustedDeviceService: TrustedDeviceService,
     private readonly mfaService: MfaService,
-    private readonly passkeyService: PasskeyService,
+
     private readonly rbacService: RbacService,
     private readonly oauthService: OAuthService,
     private readonly auditRepository: AuditRepository,
@@ -80,13 +74,13 @@ export class AuthController {
   }
 
   // ─── Helper: set refresh token cookie ────────────
-  private setRefreshTokenCookie(reply: FastifyReply, token: string): void {
+  private setRefreshTokenCookie(reply: FastifyReply, token: string, rememberMe = false): void {
     reply.setCookie('refreshToken', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/auth',
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+      ...(rememberMe && { maxAge: 30 * 24 * 60 * 60 }), // 30 days if rememberMe, otherwise session cookie
     });
   }
 
@@ -121,8 +115,8 @@ export class AuthController {
       ...ctx,
     });
 
-    // Generate email verification OTP code
-    const otpCode = await this.otpService.generateOtp(user.id, 'email_verification');
+    // Generate email verification token
+    const token = await this.emailVerificationService.generateVerificationToken(user.id);
 
     return reply.status(201).send(
       createSuccessResponse(
@@ -130,8 +124,8 @@ export class AuthController {
           message: 'Registration successful. Please verify your email address.',
           userId: user.id,
           email: user.email,
-          // Return verification code in non-production for testing
-          verificationCode: process.env.NODE_ENV !== 'production' ? otpCode : undefined,
+          // Return verification token in non-production for testing
+          verificationToken: process.env.NODE_ENV !== 'production' ? token : undefined,
         },
         request.id,
       ),
@@ -153,7 +147,19 @@ export class AuthController {
       ...ctx,
     });
 
-    this.setRefreshTokenCookie(reply, result.refreshToken);
+    if (result.mfaRequired) {
+      return reply.status(200).send(
+        createSuccessResponse(
+          {
+            mfaRequired: true,
+            tempToken: result.tempToken,
+          },
+          request.id,
+        ),
+      );
+    }
+
+    this.setRefreshTokenCookie(reply, result.refreshToken!, data.rememberMe);
 
     return reply.status(200).send(
       createSuccessResponse(
@@ -220,7 +226,7 @@ export class AuthController {
     const ctx = this.getContext(request);
     const result = await this.authService.refresh({ refreshToken, ...ctx });
 
-    this.setRefreshTokenCookie(reply, result.refreshToken);
+    this.setRefreshTokenCookie(reply, result.refreshToken, result.isRememberMe);
 
     return reply.status(200).send(
       createSuccessResponse(
@@ -230,52 +236,6 @@ export class AuthController {
     );
   }
 
-  // ═══════════════════════════════════════════════════
-  // ─── POST /auth/send-otp ─────────────────────────
-  // ═══════════════════════════════════════════════════
-
-  async sendOtp(request: FastifyRequest, reply: FastifyReply) {
-    const data = validate(otpRequestSchema, request.body);
-
-    const code = await this.otpService.generateOtp(data.userId, data.purpose);
-
-    return reply.status(200).send(
-      createSuccessResponse(
-        {
-          message: `Verification code sent successfully for ${data.purpose}.`,
-          // Return OTP in non-production for testing
-          verificationCode: process.env.NODE_ENV !== 'production' ? code : undefined,
-        },
-        request.id,
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════
-  // ─── POST /auth/verify-otp ────────────────────────
-  // ═══════════════════════════════════════════════════
-
-  async verifyOtp(request: FastifyRequest, reply: FastifyReply) {
-    const data = validate(otpVerifySchema, request.body);
-
-    const isValid = await this.otpService.verifyOtp(data.userId, 'email_verification', data.code);
-    if (!isValid) {
-      throw ErrorFactory.badRequest('Invalid verification code');
-    }
-
-    // Activate user account upon successful email verification OTP
-    await this.userRepository.updateUser(data.userId, {
-      status: 'active',
-      emailVerified: true,
-    });
-
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Verification successful.' },
-        request.id,
-      ),
-    );
-  }
 
   // ═══════════════════════════════════════════════════
   // ─── POST /auth/forgot-password ───────────────────
@@ -427,13 +387,14 @@ export class AuthController {
 
     // We always return the same message regardless of whether email exists
     // to prevent email enumeration attacks
-    let verificationCode: string | undefined;
+    let verificationToken: string | undefined;
     if (user) {
       try {
         if (user.emailVerified) {
           throw ErrorFactory.badRequest('Email is already verified');
         }
-        verificationCode = await this.otpService.generateOtp((user as any).id, 'email_verification');
+        const ctx = this.getContext(request);
+        verificationToken = await this.emailVerificationService.resendVerification((user as any).id, ctx);
       } catch {
         // Swallow errors (cooldown, already verified) — return generic message
       }
@@ -443,7 +404,7 @@ export class AuthController {
       createSuccessResponse(
         {
           message: 'If the email matches an unverified account, a new verification email has been sent.',
-          verificationCode: process.env.NODE_ENV !== 'production' ? verificationCode : undefined,
+          verificationToken: process.env.NODE_ENV !== 'production' ? verificationToken : undefined,
         },
         request.id,
       ),
@@ -563,7 +524,7 @@ export class AuthController {
       // Successful verification -> create actual session
       await this.authService.redisClient.del(`mfa:login:temp:${data.tempToken}`);
 
-      const plainRefreshToken = this.authService.jwtService.generateRefreshToken();
+      const plainRefreshToken = this.authService.jwtService.generateRefreshToken(!!tempSessionData.rememberMe);
       const tokenHash = this.authService.jwtService.hashToken(plainRefreshToken);
 
       const session = await this.authService.sessionService.createSession({
@@ -594,7 +555,7 @@ export class AuthController {
         sessionId: session.id,
       });
 
-      this.setRefreshTokenCookie(reply, plainRefreshToken);
+      this.setRefreshTokenCookie(reply, plainRefreshToken, !!tempSessionData.rememberMe);
 
       await this.auditRepository.createSecurityEvent({
         userId: tempSessionData.userId,
@@ -666,154 +627,6 @@ export class AuthController {
     );
   }
 
-  // ═══════════════════════════════════════════════════
-  // ─── WEBAUTHN / PASSKEY ENDPOINTS ─────────────────
-  // ═══════════════════════════════════════════════════
-
-  async passkeyRegisterOptions(request: FastifyRequest, reply: FastifyReply) {
-    const { userId, email } = this.getAuthUser(request);
-    const options = await this.passkeyService.generateRegisterOptions(userId, email);
-
-    return reply.status(200).send(
-      createSuccessResponse(
-        options,
-        request.id,
-      ),
-    );
-  }
-
-  async passkeyRegisterVerify(request: FastifyRequest, reply: FastifyReply) {
-    const { userId } = this.getAuthUser(request);
-    const body = request.body as any;
-    const nickname = body.nickname || 'My Passkey';
-    const ctx = this.getContext(request);
-
-    await this.passkeyService.verifyAndRegister(userId, body, nickname, ctx);
-
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Passkey registered successfully' },
-        request.id,
-      ),
-    );
-  }
-
-  async passkeyLoginOptions(request: FastifyRequest, reply: FastifyReply) {
-    const { email } = request.query as { email: string };
-    if (!email) {
-      throw ErrorFactory.badRequest('Email is required');
-    }
-
-    const options = await this.passkeyService.generateLoginOptions(email);
-
-    return reply.status(200).send(
-      createSuccessResponse(
-        options,
-        request.id,
-      ),
-    );
-  }
-
-  async passkeyLoginVerify(request: FastifyRequest, reply: FastifyReply) {
-    const body = request.body as any;
-    const email = body.email;
-    if (!email) {
-      throw ErrorFactory.badRequest('Email is required');
-    }
-    const ctx = this.getContext(request);
-
-    const { user } = await this.passkeyService.verifyAndAuthenticate(email, body, ctx);
-
-    const plainRefreshToken = this.authService.jwtService.generateRefreshToken();
-    const tokenHash = this.authService.jwtService.hashToken(plainRefreshToken);
-
-    const session = await this.authService.sessionService.createSession({
-      userId: user.id,
-      userAgent: ctx.userAgent,
-      ipAddress: ctx.ipAddress,
-      refreshTokenHash: tokenHash,
-    });
-
-    await this.authService.refreshTokenRepository.createRefreshToken({
-      userId: user.id,
-      sessionId: session.id,
-      tokenHash,
-      parentTokenHash: null,
-      expiresAt: session.expiresAt,
-    });
-
-    const roles = await this.rbacService.getUserRoles(user.id);
-    const permissions = await this.rbacService.getUserPermissions(user.id);
-
-    const accessToken = this.authService.jwtService.generateAccessToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      roles,
-      permissions,
-      sessionId: session.id,
-    });
-
-    this.setRefreshTokenCookie(reply, plainRefreshToken);
-
-    return reply.status(200).send(
-      createSuccessResponse(
-        {
-          accessToken,
-          user: {
-            id: user.id,
-            email: user.email,
-            username: user.username,
-            fullName: user.fullName,
-            role: user.role,
-          },
-        },
-        request.id,
-      ),
-    );
-  }
-
-  async getPasskeys(request: FastifyRequest, reply: FastifyReply) {
-    const { userId } = this.getAuthUser(request);
-    const passkeys = await this.passkeyService.getPasskeysForUser(userId);
-
-    return reply.status(200).send(
-      createSuccessResponse(
-        { passkeys },
-        request.id,
-      ),
-    );
-  }
-
-  async renamePasskey(request: FastifyRequest, reply: FastifyReply) {
-    const { userId } = this.getAuthUser(request);
-    const { id } = request.params as { id: string };
-    const { nickname } = validate(passkeyRenameSchema, request.body);
-
-    await this.passkeyService.renamePasskey(id, userId, nickname);
-
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Passkey renamed successfully' },
-        request.id,
-      ),
-    );
-  }
-
-  async deletePasskey(request: FastifyRequest, reply: FastifyReply) {
-    const { userId } = this.getAuthUser(request);
-    const { id } = request.params as { id: string };
-    const ctx = this.getContext(request);
-
-    await this.passkeyService.deletePasskey(id, userId, ctx);
-
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Passkey deleted successfully' },
-        request.id,
-      ),
-    );
-  }
 
   // ═══════════════════════════════════════════════════
   // ─── SECURITY & AUDIT ENDPOINTS ───────────────────
@@ -912,6 +725,25 @@ export class AuthController {
     return reply.status(200).send(
       createSuccessResponse(
         { roles },
+        request.id,
+      ),
+    );
+  }
+
+  async deleteAccount(request: FastifyRequest, reply: FastifyReply) {
+    const { userId } = this.getAuthUser(request);
+    const { password } = (request.body as any) || {};
+    const ctx = this.getContext(request);
+
+    await this.authService.deleteAccount({
+      userId,
+      password,
+      ...ctx,
+    });
+
+    return reply.status(200).send(
+      createSuccessResponse(
+        { message: 'Account deleted successfully.' },
         request.id,
       ),
     );

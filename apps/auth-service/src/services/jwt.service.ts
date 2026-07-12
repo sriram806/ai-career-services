@@ -77,8 +77,16 @@ export class JwtService {
   /**
    * Generates a cryptographically secure random string to be used as a Refresh Token.
    */
-  generateRefreshToken(): string {
-    return crypto.randomBytes(48).toString('hex');
+  generateRefreshToken(rememberMe = false): string {
+    const prefix = rememberMe ? 'rem_' : 'ses_';
+    return prefix + crypto.randomBytes(48).toString('hex');
+  }
+
+  /**
+   * Checks if the refresh token prefix indicates a persistent Remember Me session.
+   */
+  isRememberMeToken(token: string): boolean {
+    return token.startsWith('rem_');
   }
 
   /**

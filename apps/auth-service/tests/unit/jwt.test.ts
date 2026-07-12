@@ -29,7 +29,7 @@ describe('JwtService Unit Tests', () => {
     const token1 = service.generateRefreshToken();
     const token2 = service.generateRefreshToken();
 
-    expect(token1.length).toBe(96); // 48 bytes * 2 hex chars
+    expect(token1.length).toBe(100); // 48 bytes * 2 hex chars + 4 char prefix ('ses_' or 'rem_')
     expect(token1).not.toBe(token2);
   });
 

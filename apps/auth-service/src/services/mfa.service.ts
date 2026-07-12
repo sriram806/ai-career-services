@@ -1,7 +1,7 @@
 import * as crypto from 'node:crypto';
 import type { MfaRepository, DbMfaSettings } from '../repositories/mfa.repository';
 import type { AuditRepository } from '../repositories/audit.repository';
-import type { OtpService } from './otp.service';
+
 import type { Redis } from 'ioredis';
 import { Totp } from '../utils/totp';
 import { ErrorFactory } from '@ai-career-os/errors';
@@ -12,7 +12,6 @@ export class MfaService {
   constructor(
     private readonly mfaRepository: MfaRepository,
     private readonly auditRepository: AuditRepository,
-    private readonly otpService: OtpService,
     private readonly redisClient: Redis,
   ) {}
 
@@ -155,15 +154,7 @@ export class MfaService {
       if (isTotpValid) return true;
     }
 
-    // 2. Try Email OTP if enabled
-    if (settings.emailEnabled) {
-      try {
-        const isEmailOtpValid = await this.otpService.verifyOtp(userId, 'mfa', code);
-        if (isEmailOtpValid) return true;
-      } catch {
-        // Fall through to recovery code check
-      }
-    }
+
 
     // 3. Try Recovery Code check
     const recoveryCodesList = await this.mfaRepository.findRecoveryCodesByUserId(userId);

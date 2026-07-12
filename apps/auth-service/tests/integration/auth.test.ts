@@ -63,7 +63,6 @@ const mockDbRolePermissions: any[] = [];
 const mockDbUserRoles: any[] = [];
 const mockDbMfaSettings: any[] = [];
 const mockDbRecoveryCodes: any[] = [];
-const mockDbPasskeys: any[] = [];
 
 function getTableName(table: any): string {
   if (!table) return '';
@@ -107,7 +106,6 @@ const dbClient = {
     else if (tableName === 'otp_codes') dbSource = mockDbOtpCodes;
     else if (tableName === 'mfa_settings') dbSource = mockDbMfaSettings;
     else if (tableName === 'recovery_codes') dbSource = mockDbRecoveryCodes;
-    else if (tableName === 'passkeys') dbSource = mockDbPasskeys;
     else if (tableName === 'roles') dbSource = mockDbRoles;
     else if (tableName === 'permissions') dbSource = mockDbPermissions;
     else if (tableName === 'role_permissions') dbSource = mockDbRolePermissions;
@@ -130,7 +128,6 @@ const dbClient = {
           else if (tableName === 'login_history') mockDbLoginHistory.push(row);
           else if (tableName === 'mfa_settings') mockDbMfaSettings.push(row);
           else if (tableName === 'recovery_codes') mockDbRecoveryCodes.push(row);
-          else if (tableName === 'passkeys') mockDbPasskeys.push(row);
           else if (tableName === 'roles') mockDbRoles.push(row);
           else if (tableName === 'permissions') mockDbPermissions.push(row);
           else if (tableName === 'role_permissions') mockDbRolePermissions.push(row);
@@ -215,7 +212,7 @@ describe('Auth Service Integration Tests', () => {
     app = await buildApp(logger);
   });
 
-  it('should register a new user successfully and return pending OTP in development', async () => {
+  it('should register a new user successfully and return email verification token in development', async () => {
     // 1. Stub find methods to return null (clean database)
     const findEmailSpy = vi.spyOn((app as any).userRepository, 'findByEmail').mockResolvedValue(null);
     const findUsernameSpy = vi.spyOn((app as any).userRepository, 'findByUsername').mockResolvedValue(null);

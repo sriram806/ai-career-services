@@ -21,6 +21,10 @@ export class ErrorFactory {
     return new AppError(ErrorCode.FORBIDDEN, message);
   }
 
+  static accountLocked(message = 'Account is temporarily locked', details?: ApiErrorDetail[]): AppError {
+    return new AppError(ErrorCode.ACCOUNT_LOCKED, message, { details });
+  }
+
   static notFound(resource: string, id?: string): AppError {
     const message = id ? `${resource} with id '${id}' not found` : `${resource} not found`;
     return new AppError(ErrorCode.RESOURCE_NOT_FOUND, message);

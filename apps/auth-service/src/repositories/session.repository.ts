@@ -1,4 +1,4 @@
-import { eq, and, ne, asc, count } from 'drizzle-orm';
+import { eq, and, ne, asc, desc, count } from 'drizzle-orm';
 import { sessions } from '@ai-career-os/database';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
@@ -119,7 +119,9 @@ export class SessionRepository {
     return this.db
       .select()
       .from(sessions)
-      .where(and(eq(sessions.userId, userId), eq(sessions.isActive, true))) as Promise<DbSession[]>;
+      .where(and(eq(sessions.userId, userId), eq(sessions.isActive, true)))
+      .orderBy(desc(sessions.lastActivityAt))
+      .limit(5) as Promise<DbSession[]>;
   }
 
   /**

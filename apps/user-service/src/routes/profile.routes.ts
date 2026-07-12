@@ -39,6 +39,10 @@ export function registerProfileRoutes(
   fastify.patch('/profile', { preHandler: [authenticate] }, (req: FastifyRequest, rep: FastifyReply) => controller.updateProfile(req, rep));
   fastify.get('/profile/completion', { preHandler: [authenticate] }, (req: FastifyRequest, rep: FastifyReply) => controller.getCompletion(req, rep));
 
+  // ─── Convenience Routes (flat body → nested profile) ─────────────────────
+  fastify.patch('/profile/basics', { preHandler: [authenticate] }, (req: FastifyRequest, rep: FastifyReply) => controller.updateBasics(req, rep));
+  fastify.patch('/profile/career', { preHandler: [authenticate] }, (req: FastifyRequest, rep: FastifyReply) => controller.updateCareerPreferences(req, rep));
+
   // ─── Profile Avatar & Banner Media ───────────────
   fastify.post('/profile/avatar', { preHandler: [authenticate] }, (req: FastifyRequest, rep: FastifyReply) => controller.uploadAvatar(req, rep));
   fastify.delete('/profile/avatar', { preHandler: [authenticate] }, (req: FastifyRequest, rep: FastifyReply) => controller.deleteAvatar(req, rep));

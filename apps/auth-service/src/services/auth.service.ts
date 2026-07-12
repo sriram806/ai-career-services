@@ -6,7 +6,6 @@ import type { PasswordHistoryRepository } from '../repositories/password-history
 import type { AuditRepository } from '../repositories/audit.repository';
 import type { PasswordService } from './password.service';
 import type { JwtService } from './jwt.service';
-import type { OtpService } from './otp.service';
 import type { SessionService } from './session.service';
 import type { TrustedDeviceService } from './trusted-device.service';
 import type { Redis } from 'ioredis';
@@ -18,9 +17,11 @@ import { ErrorFactory } from '@ai-career-os/errors';
 // ─── Response Interfaces ───────────────────────────
 
 export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: Omit<DbUser, 'deletedAt' | 'failedLoginAttempts' | 'lockUntil' | 'lastFailedLogin'>;
+  accessToken?: string;
+  refreshToken?: string;
+  user?: Omit<DbUser, 'deletedAt' | 'failedLoginAttempts' | 'lockUntil' | 'lastFailedLogin'>;
+  mfaRequired?: boolean;
+  tempToken?: string;
 }
 
 export interface RequestContext {
@@ -79,7 +80,6 @@ export class AuthService {
     private readonly auditRepository: AuditRepository,
     private readonly passwordService: PasswordService,
     public readonly jwtService: JwtService,
-    private readonly otpService: OtpService,
     _trustedDeviceService: TrustedDeviceService,
     private readonly rbacService: RbacService,
     private readonly mfaRepository: MfaRepository,
@@ -215,26 +215,38 @@ export class AuthService {
     const lockoutTTL = await this.redisClient.ttl(lockoutKey);
     if (lockoutTTL > 0) {
       const remainingMinutes = Math.ceil(lockoutTTL / 60);
-      throw ErrorFactory.forbidden(
+      throw ErrorFactory.accountLocked(
         `Account is temporarily locked. Try again in ${remainingMinutes} minute${remainingMinutes > 1 ? 's' : ''}.`,
+        [
+          {
+            field: 'lockout',
+            message: 'Multiple failed login attempts',
+            code: lockoutTTL.toString(),
+          }
+        ]
       );
     }
 
     // 2. Look up user
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
-      // Timing attack protection: execute dummy Argon2 verify
-      await this.passwordService.verifyPassword('dummy', '$argon2id$v=19$m=19456,t=2,p=1$dummysalt$dummyhash');
-      await this.recordFailedLogin(email, null, data.ipAddress, data.userAgent, 'User not found');
-      throw ErrorFactory.unauthorized('Invalid email or password');
+      throw ErrorFactory.badRequest('Email is not registered');
     }
 
     // 3. Check PostgreSQL-persisted lock
     if (user.lockUntil && user.lockUntil.getTime() > Date.now()) {
       const remainingMs = user.lockUntil.getTime() - Date.now();
       const remainingMinutes = Math.ceil(remainingMs / 60_000);
-      throw ErrorFactory.forbidden(
+      const remainingSeconds = Math.ceil(remainingMs / 1000);
+      throw ErrorFactory.accountLocked(
         `Account is temporarily locked. Try again in ${remainingMinutes} minute${remainingMinutes > 1 ? 's' : ''}.`,
+        [
+          {
+            field: 'lockout',
+            message: 'Multiple failed login attempts',
+            code: remainingSeconds.toString(),
+          }
+        ]
       );
     }
 
@@ -251,8 +263,14 @@ export class AuthService {
     // 5. Verify credentials
     const credentials = await this.userRepository.getCredentialsByUserId(user.id);
     if (!credentials) {
-      await this.recordFailedLogin(email, user.id, data.ipAddress, data.userAgent, 'Missing credentials');
-      throw ErrorFactory.unauthorized('Invalid email or password');
+      const attempts = await this.recordFailedLogin(email, user.id, data.ipAddress, data.userAgent, 'Missing credentials');
+      
+      const remaining = 5 - attempts;
+      const msg = remaining > 0
+        ? `Incorrect password. You have ${remaining} attempt${remaining > 1 ? 's' : ''} remaining before account is temporarily locked.`
+        : `Incorrect password.`;
+
+      throw ErrorFactory.unauthorized(msg);
     }
 
     const isPasswordMatch = await this.passwordService.verifyPassword(data.password, credentials.passwordHash);
@@ -264,8 +282,14 @@ export class AuthService {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
 
-      await this.recordFailedLogin(email, user.id, data.ipAddress, data.userAgent, 'Invalid password');
-      throw ErrorFactory.unauthorized('Invalid email or password');
+      const attempts = await this.recordFailedLogin(email, user.id, data.ipAddress, data.userAgent, 'Invalid password');
+      
+      const remaining = 5 - attempts;
+      const msg = remaining > 0
+        ? `Incorrect password. You have ${remaining} attempt${remaining > 1 ? 's' : ''} remaining before account is temporarily locked.`
+        : `Incorrect password.`;
+
+      throw ErrorFactory.unauthorized(msg);
     }
 
     // 6. Verify email is confirmed
@@ -273,11 +297,10 @@ export class AuthService {
       throw ErrorFactory.forbidden('Please verify your email address before logging in.');
     }
 
-    // Check if MFA is enabled or if the user is an admin role
+    // Check if MFA is enabled (only TOTP MFA is supported since email OTP passcode is removed)
     const mfa = await this.mfaRepository.findByUserId(user.id);
-    const isAdminRole = ['super_administrator', 'administrator', 'platform_admin', 'super_admin'].includes(user.role);
     
-    if ((mfa && (mfa.totpEnabled || mfa.emailEnabled)) || isAdminRole) {
+    if (mfa && mfa.totpEnabled) {
       // MFA required - generate temporary verification session
       const tempToken = crypto.randomBytes(32).toString('hex');
       const tempSessionData = {
@@ -294,11 +317,6 @@ export class AuthService {
         300 // 5 minutes
       );
 
-      // If only Email MFA is enabled, or if it's forced by role without TOTP, auto-trigger sending OTP
-      if ((mfa?.emailEnabled && !mfa?.totpEnabled) || (isAdminRole && !mfa?.totpEnabled)) {
-        await this.otpService.generateOtp(user.id, 'mfa');
-      }
-
       return {
         mfaRequired: true,
         tempToken,
@@ -311,7 +329,7 @@ export class AuthService {
     await this.userRepository.clearFailedAttempts(user.id);
 
     // 8. Generate tokens and session
-    const plainRefreshToken = this.jwtService.generateRefreshToken();
+    const plainRefreshToken = this.jwtService.generateRefreshToken(!!data.rememberMe);
     const tokenHash = this.jwtService.hashToken(plainRefreshToken);
 
     const session = await this.sessionService.createSession({
@@ -385,7 +403,7 @@ export class AuthService {
    */
   async refresh(data: {
     refreshToken: string;
-  } & RequestContext): Promise<{ accessToken: string; refreshToken: string }> {
+  } & RequestContext): Promise<{ accessToken: string; refreshToken: string; isRememberMe: boolean }> {
     const incomingTokenHash = this.jwtService.hashToken(data.refreshToken);
 
     // 1. Look up refresh token
@@ -432,7 +450,8 @@ export class AuthService {
     }
 
     // 5. Rotate: mark current token as used, issue new pair
-    const newPlainRefreshToken = this.jwtService.generateRefreshToken();
+    const isRememberMe = this.jwtService.isRememberMeToken(data.refreshToken);
+    const newPlainRefreshToken = this.jwtService.generateRefreshToken(isRememberMe);
     const newHash = this.jwtService.hashToken(newPlainRefreshToken);
 
     await this.refreshTokenRepository.markUsed(incomingTokenHash);
@@ -466,7 +485,8 @@ export class AuthService {
     return {
       accessToken,
       refreshToken: newPlainRefreshToken,
-    };
+      isRememberMe,
+    } as any;
   }
 
   // ═════════════════════════════════════════════════════
@@ -589,12 +609,18 @@ export class AuthService {
    * Fetches sanitized profile for the authenticated user.
    * Strips all security-internal fields (lockout state, deleted_at, etc.).
    */
-  async getMe(userId: string): Promise<ReturnType<typeof sanitizeUser>> {
+  async getMe(userId: string): Promise<ReturnType<typeof sanitizeUser> & { mfaEnabled: boolean; mfaType: string | null }> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw ErrorFactory.notFound('User');
     }
-    return sanitizeUser(user);
+    const mfa = await this.mfaRepository.findByUserId(userId);
+    const sanitized = sanitizeUser(user);
+    return {
+      ...sanitized,
+      mfaEnabled: mfa ? (mfa.totpEnabled || mfa.emailEnabled) : false,
+      mfaType: mfa ? (mfa.totpEnabled ? 'totp' : mfa.emailEnabled ? 'email' : null) : null,
+    };
   }
 
   // ═════════════════════════════════════════════════════
@@ -611,7 +637,7 @@ export class AuthService {
     ipAddress: string | null,
     userAgent: string | null,
     reason: string,
-  ): Promise<void> {
+  ): Promise<number> {
     const attemptsKey = `login:attempts:${email}`;
     const lockoutKey = `login:lockout:${email}`;
 
@@ -633,9 +659,11 @@ export class AuthService {
       attemptNumber: attempts,
     });
 
+    let dbAttempts = attempts;
     // Increment on user record (if user exists)
     if (userId) {
       const updatedUser = await this.userRepository.incrementFailedAttempts(userId);
+      dbAttempts = updatedUser.failedLoginAttempts;
 
       // Progressive lockout enforcement via Redis cache
       if (updatedUser.failedLoginAttempts >= 10) {
@@ -670,5 +698,39 @@ export class AuthService {
         });
       }
     }
+    return dbAttempts;
+  }
+
+  async deleteAccount(data: {
+    userId: string;
+    password?: string;
+  } & RequestContext): Promise<void> {
+    const credentials = await this.userRepository.getCredentialsByUserId(data.userId);
+
+    if (credentials && credentials.passwordHash) {
+      if (data.password) {
+        const isMatch = await this.passwordService.verifyPassword(data.password, credentials.passwordHash);
+        if (!isMatch) {
+          throw ErrorFactory.unauthorized('Incorrect password');
+        }
+      } else {
+        throw ErrorFactory.badRequest('Password is required to delete account');
+      }
+    }
+
+    // Soft delete user in database
+    await this.userRepository.softDeleteUser(data.userId);
+
+    // Revoke all user sessions
+    await this.sessionRepository.revokeAllUserSessions(data.userId);
+
+    // Create security event
+    await this.auditRepository.createSecurityEvent({
+      userId: data.userId,
+      eventType: 'user.account.deleted',
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+      details: { reason: 'User deleted account' },
+    });
   }
 }

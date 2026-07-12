@@ -51,8 +51,12 @@ export async function buildApp(logger: Logger): Promise<FastifyInstance<any, any
     referrerPolicy: { policy: 'same-origin' },
   });
 
+  const corsOrigins = config.CORS_ORIGIN
+    ? config.CORS_ORIGIN.split(',').map((o) => o.trim())
+    : ['http://localhost:3000'];
+
   await app.register(cors, {
-    origin: config.CORS_ORIGIN ?? 'http://localhost:3000',
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [

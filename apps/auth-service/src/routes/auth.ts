@@ -129,37 +129,6 @@ export function registerAuthRoutes(
     },
   }, (req: any, rep: any) => controller.refresh(req, rep));
 
-  // POST /auth/send-otp — Generate and send OTP
-  fastify.post('/auth/send-otp', {
-    schema: {
-      description: 'Generate and send OTP verification code',
-      tags: ['auth'],
-      body: {
-        type: 'object',
-        required: ['userId', 'purpose'],
-        properties: {
-          userId: { type: 'string', format: 'uuid' },
-          purpose: { type: 'string', enum: ['email_verification', 'password_reset', 'mfa'] },
-        },
-      },
-    },
-  }, (req: any, rep: any) => controller.sendOtp(req, rep));
-
-  // POST /auth/verify-otp — Verify OTP code
-  fastify.post('/auth/verify-otp', {
-    schema: {
-      description: 'Verify an OTP code',
-      tags: ['auth'],
-      body: {
-        type: 'object',
-        required: ['userId', 'code'],
-        properties: {
-          userId: { type: 'string', format: 'uuid' },
-          code: { type: 'string', minLength: 6, maxLength: 6 },
-        },
-      },
-    },
-  }, (req: any, rep: any) => controller.verifyOtp(req, rep));
 
   // POST /auth/forgot-password — Request password reset token
   fastify.post('/auth/forgot-password', {
@@ -321,29 +290,12 @@ export function registerAuthRoutes(
   fastify.post('/auth/mfa/verify', { preHandler: optionalAuthenticate }, (req: any, rep: any) => controller.mfaVerify(req, rep));
   fastify.post('/auth/mfa/recovery-codes/rotate', { preHandler: authenticate }, (req: any, rep: any) => controller.rotateRecoveryCodes(req, rep));
 
-  // Passkey routes (Smart dual-mode: returns options if no body response, verifies if body response present)
-  fastify.post('/auth/passkeys/register', { preHandler: authenticate }, (req: any, rep: any) => {
-    if (req.body && req.body.response) {
-      return controller.passkeyRegisterVerify(req, rep);
-    }
-    return controller.passkeyRegisterOptions(req, rep);
-  });
-
-  fastify.post('/auth/passkeys/authenticate', (req: any, rep: any) => {
-    if (req.body && req.body.response) {
-      return controller.passkeyLoginVerify(req, rep);
-    }
-    return controller.passkeyLoginOptions(req, rep);
-  });
-
-  fastify.get('/auth/passkeys', { preHandler: authenticate }, (req: any, rep: any) => controller.getPasskeys(req, rep));
-  fastify.delete('/auth/passkeys/:id', { preHandler: authenticate }, (req: any, rep: any) => controller.deletePasskey(req, rep));
-  fastify.patch('/auth/passkeys/:id', { preHandler: authenticate }, (req: any, rep: any) => controller.renamePasskey(req, rep));
 
   // Security & device management routes
   fastify.get('/auth/security/events', { preHandler: authenticate }, (req: any, rep: any) => controller.getSecurityEvents(req, rep));
   fastify.get('/auth/devices', { preHandler: authenticate }, (req: any, rep: any) => controller.getDevices(req, rep));
   fastify.delete('/auth/devices/:id', { preHandler: authenticate }, (req: any, rep: any) => controller.deleteDevice(req, rep));
+  fastify.post('/auth/delete-account', { preHandler: authenticate }, (req: any, rep: any) => controller.deleteAccount(req, rep));
 
   // RBAC info routes
   fastify.get('/auth/permissions', { preHandler: authenticate }, (req: any, rep: any) => controller.getPermissions(req, rep));
