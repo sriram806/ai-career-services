@@ -25,7 +25,7 @@ export function gatewayErrorHandler(
   // 1. Handle AppError (domain-specific errors)
   if (error instanceof AppError) {
     const statusCode = error.statusCode ?? 500;
-    
+
     // Normalize details array to object format if requested
     const detailsObj: Record<string, any> = {};
     if (error.details && Array.isArray(error.details)) {
@@ -70,12 +70,19 @@ export function gatewayErrorHandler(
 
   // 3. Handle standard Fastify errors with custom statuses
   if ('statusCode' in error && typeof error.statusCode === 'number') {
+    const isRateLimit = error.statusCode === 429;
+    const routeConfig = (request as any).routeOptions?.config || (request as any).routeConfig;
+    const rateLimitConfig = routeConfig?.rateLimit;
+
     void reply.status(error.statusCode).send({
       error: {
-        code: ErrorCode.BAD_REQUEST,
+        code: isRateLimit ? ErrorCode.RATE_LIMIT_EXCEEDED : ErrorCode.BAD_REQUEST,
         message: error.message,
         requestId,
-        details: {},
+        details: isRateLimit && rateLimitConfig ? {
+          limit: rateLimitConfig.max,
+          windowMs: rateLimitConfig.timeWindow,
+        } : {},
       },
     });
     return;

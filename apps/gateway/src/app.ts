@@ -59,13 +59,7 @@ export async function buildApp(logger: Logger): Promise<FastifyInstance<any, any
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Request-ID',
-      'X-Correlation-ID',
-      'Accept',
-    ],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-Correlation-ID', 'Accept'],
   });
 
   // Compression
@@ -108,9 +102,7 @@ export async function buildApp(logger: Logger): Promise<FastifyInstance<any, any
         description: 'Production-Grade API Gateway for AI Career OS microservices platform.',
         version: '1.0.0',
       },
-      servers: [
-        { url: `http://localhost:${config.PORT}`, description: 'Local Gateway' },
-      ],
+      servers: [{ url: `http://localhost:${config.PORT}`, description: 'Local Gateway' }],
       components: {
         securitySchemes: {
           BearerAuth: {
@@ -121,9 +113,7 @@ export async function buildApp(logger: Logger): Promise<FastifyInstance<any, any
           },
         },
       },
-      security: [
-        { BearerAuth: [] },
-      ],
+      security: [{ BearerAuth: [] }],
     },
   });
 
@@ -138,10 +128,15 @@ export async function buildApp(logger: Logger): Promise<FastifyInstance<any, any
   // ─── Global Error Handler ─────────────────────────
   app.setErrorHandler(gatewayErrorHandler);
 
+  // Register pass-through content type parser for multipart uploads so they can be proxied downstream
+  app.addContentTypeParser('multipart/form-data', (_request, payload, done) => {
+    done(null, payload);
+  });
+
   // ─── Routes ───────────────────────────────────────
   // Health endpoints (liveness, readiness)
   await app.register(healthRoutes);
-  
+
   // Downstream proxied routes
   await app.register(gatewayRoutes);
 

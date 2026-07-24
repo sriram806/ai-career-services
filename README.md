@@ -38,19 +38,19 @@ AI Career OS is a **microservices-based platform** built for millions of users. 
 
 ### Technology Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **API Gateway** | Fastify 5 |
-| **Node.js Services** | Fastify, TypeScript Strict Mode |
-| **Python Services** | FastAPI, Pydantic v2 |
-| **Database (SQL)** | PostgreSQL 16, Drizzle ORM |
-| **Database (NoSQL)** | MongoDB 7, Mongoose |
-| **Cache / Pub-Sub** | Redis 7, ioredis |
-| **Monorepo** | Turborepo + npm Workspaces |
-| **CI/CD** | GitHub Actions |
-| **Containerization** | Docker, Docker Compose |
-| **Logging** | Pino (Node.js), structlog (Python) |
-| **Validation** | Zod (Node.js), Pydantic (Python) |
+| Layer                | Technology                         |
+| -------------------- | ---------------------------------- |
+| **API Gateway**      | Fastify 5                          |
+| **Node.js Services** | Fastify, TypeScript Strict Mode    |
+| **Python Services**  | FastAPI, Pydantic v2               |
+| **Database (SQL)**   | PostgreSQL 16, Drizzle ORM         |
+| **Database (NoSQL)** | MongoDB 7, Mongoose                |
+| **Cache / Pub-Sub**  | Redis 7, ioredis                   |
+| **Monorepo**         | Turborepo + npm Workspaces         |
+| **CI/CD**            | GitHub Actions                     |
+| **Containerization** | Docker, Docker Compose             |
+| **Logging**          | Pino (Node.js), structlog (Python) |
+| **Validation**       | Zod (Node.js), Pydantic (Python)   |
 
 ---
 
@@ -179,25 +179,25 @@ docker compose up -d gateway
 
 ### Docker Service Ports
 
-| Service | Port |
-|---------|------|
-| Gateway | `3000` |
-| Auth Service | `3001` |
-| User Service | `3002` |
-| Career Service | `3003` |
-| Exam Service | `3004` |
-| AI Service | `3005` |
-| Organization Service | `3006` |
-| Billing Service | `3007` |
-| Notification Service | `3008` |
-| Admin Service | `3009` |
-| Analytics Service | `3010` |
-| Client (Next.js) | `3100` |
-| PostgreSQL | `5432` |
-| MongoDB | `27017` |
-| Redis | `6379` |
-| pgAdmin | `5050` |
-| Mongo Express | `8081` |
+| Service              | Port    |
+| -------------------- | ------- |
+| Gateway              | `3000`  |
+| Auth Service         | `3001`  |
+| User Service         | `3002`  |
+| Career Service       | `3003`  |
+| Exam Service         | `3004`  |
+| AI Service           | `3005`  |
+| Organization Service | `3006`  |
+| Billing Service      | `3007`  |
+| Notification Service | `3008`  |
+| Admin Service        | `3009`  |
+| Analytics Service    | `3010`  |
+| Client (Next.js)     | `3100`  |
+| PostgreSQL           | `5432`  |
+| MongoDB              | `27017` |
+| Redis                | `6379`  |
+| pgAdmin              | `5050`  |
+| Mongo Express        | `8081`  |
 
 ### Python Services Setup
 
@@ -221,19 +221,19 @@ uvicorn app.main:app --reload --port 3010
 
 ## How to Run
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start all services with hot reload |
-| `npm run build` | Build all packages and services |
-| `npm run lint` | Run ESLint across all services |
-| `npm run format` | Format all files with Prettier |
-| `npm run test` | Run all unit tests |
-| `npm run test:coverage` | Run tests with coverage |
-| `npm run typecheck` | TypeScript type checking |
-| `npm run clean` | Clean all build artifacts |
+| Command                        | Description                                      |
+| ------------------------------ | ------------------------------------------------ |
+| `npm run dev`                  | Start all services with hot reload               |
+| `npm run build`                | Build all packages and services                  |
+| `npm run lint`                 | Run ESLint across all services                   |
+| `npm run format`               | Format all files with Prettier                   |
+| `npm run test`                 | Run all unit tests                               |
+| `npm run test:coverage`        | Run tests with coverage                          |
+| `npm run typecheck`            | TypeScript type checking                         |
+| `npm run clean`                | Clean all build artifacts                        |
 | `docker compose up -d --build` | Start full stack (all services + infra + client) |
-| `docker compose down` | Stop full stack |
-| `docker compose logs -f` | Stream logs for all containers |
+| `docker compose down`          | Stop full stack                                  |
+| `docker compose logs -f`       | Stream logs for all containers                   |
 
 ---
 
@@ -241,22 +241,23 @@ uvicorn app.main:app --reload --port 3010
 
 See [`.env.example`](.env.example) for all available environment variables.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NODE_ENV` | Environment name | `development` |
-| `LOG_LEVEL` | Logging level | `debug` |
-| `PORT` | Service port | `3000` |
-| `POSTGRES_HOST` | PostgreSQL host | `localhost` |
-| `POSTGRES_PORT` | PostgreSQL port | `5432` |
-| `MONGO_URI` | MongoDB connection URI | `mongodb://...` |
-| `REDIS_HOST` | Redis host | `localhost` |
-| `REDIS_PORT` | Redis port | `6379` |
+| Variable        | Description            | Default         |
+| --------------- | ---------------------- | --------------- |
+| `NODE_ENV`      | Environment name       | `development`   |
+| `LOG_LEVEL`     | Logging level          | `debug`         |
+| `PORT`          | Service port           | `3000`          |
+| `POSTGRES_HOST` | PostgreSQL host        | `localhost`     |
+| `POSTGRES_PORT` | PostgreSQL port        | `5432`          |
+| `MONGO_URI`     | MongoDB connection URI | `mongodb://...` |
+| `REDIS_HOST`    | Redis host             | `localhost`     |
+| `REDIS_PORT`    | Redis port             | `6379`          |
 
 ---
 
 ## Coding Standards
 
 ### TypeScript
+
 - **Strict Mode** enabled — no `any` types allowed
 - **ESLint** with `@typescript-eslint` rules
 - **Prettier** for formatting (100 char width)
@@ -264,18 +265,21 @@ See [`.env.example`](.env.example) for all available environment variables.
 - **Import ordering** enforced (builtin → external → internal)
 
 ### Python
+
 - **Black** formatter (100 char width)
 - **Ruff** linter
 - **MyPy** static type checking
 - **Pydantic v2** for data validation
 
 ### Commits
+
 - **Conventional Commits** enforced via CommitLint
 - Format: `type(scope): description`
 - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`, `infra`
 - Scopes: `auth`, `user`, `career`, `exam`, `ai`, `org`, `billing`, `notification`, `admin`, `analytics`, `gateway`, `common`, `config`, `logger`, `database`, `events`, `types`, `utils`, `validation`, `errors`, `infra`, `ci`, `docs`, `deps`
 
 ### API Standards
+
 - All responses follow the standard envelope format
 - Errors include error codes, request IDs, and timestamps
 - All endpoints documented via OpenAPI/Swagger
@@ -299,14 +303,14 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
 
 ## Development Tools
 
-| Tool | URL |
-|------|-----|
-| **Gateway API** | http://localhost:3000 |
-| **Gateway Swagger** | http://localhost:3000/docs |
+| Tool                   | URL                        |
+| ---------------------- | -------------------------- |
+| **Gateway API**        | http://localhost:3000      |
+| **Gateway Swagger**    | http://localhost:3000/docs |
 | **AI Service Swagger** | http://localhost:3005/docs |
-| **Analytics Swagger** | http://localhost:3010/docs |
-| **pgAdmin** | http://localhost:5050 |
-| **Mongo Express** | http://localhost:8081 |
+| **Analytics Swagger**  | http://localhost:3010/docs |
+| **pgAdmin**            | http://localhost:5050      |
+| **Mongo Express**      | http://localhost:8081      |
 
 ---
 

@@ -65,7 +65,11 @@ export class AuthController {
   }
 
   // ─── Helper: get authenticated user from JWT context ─
-  private getAuthUser(request: FastifyRequest): { userId: string; email: string; sessionId: string } {
+  private getAuthUser(request: FastifyRequest): {
+    userId: string;
+    email: string;
+    sessionId: string;
+  } {
     const user = (request as any).user;
     if (!user?.userId) {
       throw ErrorFactory.unauthorized('Authentication required');
@@ -186,12 +190,9 @@ export class AuthController {
 
     this.clearRefreshTokenCookie(reply);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Successfully logged out' },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(createSuccessResponse({ message: 'Successfully logged out' }, request.id));
   }
 
   // ═══════════════════════════════════════════════════
@@ -205,12 +206,11 @@ export class AuthController {
     await this.authService.logoutAll(userId, ctx);
     this.clearRefreshTokenCookie(reply);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Successfully logged out from all devices' },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(
+        createSuccessResponse({ message: 'Successfully logged out from all devices' }, request.id),
+      );
   }
 
   // ═══════════════════════════════════════════════════
@@ -228,14 +228,10 @@ export class AuthController {
 
     this.setRefreshTokenCookie(reply, result.refreshToken, result.isRememberMe);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { accessToken: result.accessToken },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(createSuccessResponse({ accessToken: result.accessToken }, request.id));
   }
-
 
   // ═══════════════════════════════════════════════════
   // ─── POST /auth/forgot-password ───────────────────
@@ -269,12 +265,16 @@ export class AuthController {
 
     await this.passwordResetService.resetPassword(data.token, data.passwordNew, ctx);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Password has been reset successfully. All active sessions have been revoked.' },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(
+        createSuccessResponse(
+          {
+            message: 'Password has been reset successfully. All active sessions have been revoked.',
+          },
+          request.id,
+        ),
+      );
   }
 
   // ═══════════════════════════════════════════════════
@@ -294,12 +294,14 @@ export class AuthController {
       ...ctx,
     });
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Password updated successfully. Other sessions have been revoked.' },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(
+        createSuccessResponse(
+          { message: 'Password updated successfully. Other sessions have been revoked.' },
+          request.id,
+        ),
+      );
   }
 
   // ═══════════════════════════════════════════════════
@@ -310,9 +312,7 @@ export class AuthController {
     const { userId } = this.getAuthUser(request);
     const user = await this.authService.getMe(userId);
 
-    return reply.status(200).send(
-      createSuccessResponse({ user }, request.id),
-    );
+    return reply.status(200).send(createSuccessResponse({ user }, request.id));
   }
 
   // ═══════════════════════════════════════════════════
@@ -323,9 +323,7 @@ export class AuthController {
     const { userId } = this.getAuthUser(request);
     const sessions = await this.sessionService.getActiveSessions(userId);
 
-    return reply.status(200).send(
-      createSuccessResponse({ sessions }, request.id),
-    );
+    return reply.status(200).send(createSuccessResponse({ sessions }, request.id));
   }
 
   // ═══════════════════════════════════════════════════
@@ -349,12 +347,9 @@ export class AuthController {
 
     await this.sessionService.revokeSession(sessionId);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Session revoked successfully' },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(createSuccessResponse({ message: 'Session revoked successfully' }, request.id));
   }
 
   // ═══════════════════════════════════════════════════
@@ -365,14 +360,16 @@ export class AuthController {
     const data = validate(verifyEmailSchema, request.body);
     const ctx = this.getContext(request);
 
-    await this.emailVerificationService.verifyToken(data.token, ctx);
+    await this.emailVerificationService.verifyOtp(data.email, data.code, ctx);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Email verified successfully. You can now log in.' },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(
+        createSuccessResponse(
+          { message: 'Email verified successfully. You can now log in.' },
+          request.id,
+        ),
+      );
   }
 
   // ═══════════════════════════════════════════════════
@@ -382,28 +379,26 @@ export class AuthController {
   async resendVerification(request: FastifyRequest, reply: FastifyReply) {
     const data = validate(resendVerificationSchema, request.body);
 
-    // Look up user by email — generic message prevents enumeration
-    const user = await this.authService.getMe(data.email).catch(() => null);
+    // Look up user by email — generic message prevents enumeration for missing accounts
+    const user = await this.userRepository.findByEmail(data.email.toLowerCase().trim());
 
-    // We always return the same message regardless of whether email exists
-    // to prevent email enumeration attacks
     let verificationToken: string | undefined;
     if (user) {
-      try {
-        if (user.emailVerified) {
-          throw ErrorFactory.badRequest('Email is already verified');
-        }
-        const ctx = this.getContext(request);
-        verificationToken = await this.emailVerificationService.resendVerification((user as any).id, ctx);
-      } catch {
-        // Swallow errors (cooldown, already verified) — return generic message
+      if (user.emailVerified) {
+        throw ErrorFactory.badRequest('Email is already verified');
       }
+      const ctx = this.getContext(request);
+      verificationToken = await this.emailVerificationService.resendVerification(
+        user.id,
+        ctx,
+      );
     }
 
     return reply.status(200).send(
       createSuccessResponse(
         {
-          message: 'If the email matches an unverified account, a new verification email has been sent.',
+          message:
+            'If the email matches an unverified account, a new verification code has been sent.',
           verificationToken: process.env.NODE_ENV !== 'production' ? verificationToken : undefined,
         },
         request.id,
@@ -417,20 +412,23 @@ export class AuthController {
 
   async oauthInitiate(request: FastifyRequest, reply: FastifyReply) {
     const { provider } = request.params as { provider: string };
-    const query = validate(oauthInitiateSchema, request.query);
+    const payload = validate(oauthInitiateSchema, {
+      ...((request.query as Record<string, unknown>) ?? {}),
+      ...((request.body as Record<string, unknown>) ?? {}),
+    });
 
     const config = getConfig();
-    const defaultCallback = `${config.CORS_ORIGIN}/auth/oauth/callback`;
-    const redirectUri = query.redirectUri || defaultCallback;
+    const defaultCallback =
+      config?.AUTH_OAUTH_REDIRECT_URI || 'http://localhost:4000/api/v1/auth/oauth/callback';
+    const redirectUri = payload.redirectUri || defaultCallback;
 
-    const { authorizationUrl } = await this.oauthService.initiateFlow(provider, redirectUri);
-
-    return reply.status(200).send(
-      createSuccessResponse(
-        { authorizationUrl },
-        request.id,
-      ),
+    const { authorizationUrl } = await this.oauthService.initiateFlow(
+      provider,
+      redirectUri,
+      payload.intent,
     );
+
+    return reply.status(200).send(createSuccessResponse({ authorizationUrl }, request.id));
   }
 
   async oauthCallback(request: FastifyRequest, reply: FastifyReply) {
@@ -445,7 +443,18 @@ export class AuthController {
     this.setRefreshTokenCookie(reply, result.refreshToken);
 
     const config = getConfig();
-    const redirectUrl = `${config.CORS_ORIGIN}/success?type=login-success&accessToken=${result.accessToken}&refreshToken=${result.refreshToken}&user=${encodeURIComponent(JSON.stringify(result.user))}`;
+    const primaryOrigin = config?.CORS_ORIGIN?.split(',')[0]?.trim() || 'http://localhost:3000';
+    const successType = result.isNewUser ? 'registration-success' : 'login-success';
+    const redirectUrl =
+      `${primaryOrigin}/success?` +
+      new URLSearchParams({
+        type: successType,
+        provider: result.provider,
+        intent: result.intent,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: JSON.stringify(result.user),
+      }).toString();
 
     return reply.redirect(redirectUrl);
   }
@@ -456,24 +465,18 @@ export class AuthController {
 
     await this.oauthService.unlinkProvider(userId, provider);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: `Successfully unlinked ${provider} account` },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(
+        createSuccessResponse({ message: `Successfully unlinked ${provider} account` }, request.id),
+      );
   }
 
   async getConnectedProviders(request: FastifyRequest, reply: FastifyReply) {
     const { userId } = this.getAuthUser(request);
     const providers = await this.oauthService.getConnectedProviders(userId);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { providers },
-        request.id,
-      ),
-    );
+    return reply.status(200).send(createSuccessResponse({ providers }, request.id));
   }
 
   // ═══════════════════════════════════════════════════
@@ -487,20 +490,17 @@ export class AuthController {
 
     if (data.type === 'totp') {
       const setup = await this.mfaService.initiateTotpSetup(userId, email);
-      return reply.status(200).send(
-        createSuccessResponse(
-          setup,
-          request.id,
-        ),
-      );
+      return reply.status(200).send(createSuccessResponse(setup, request.id));
     } else {
       const recoveryCodes = await this.mfaService.enableEmailMfa(userId, ctx);
-      return reply.status(200).send(
-        createSuccessResponse(
-          { message: 'Email MFA enabled successfully', recoveryCodes },
-          request.id,
-        ),
-      );
+      return reply
+        .status(200)
+        .send(
+          createSuccessResponse(
+            { message: 'Email MFA enabled successfully', recoveryCodes },
+            request.id,
+          ),
+        );
     }
   }
 
@@ -510,7 +510,9 @@ export class AuthController {
 
     if (data.tempToken) {
       // 1. Login flow verification
-      const tempSessionDataStr = await this.authService.redisClient.get(`mfa:login:temp:${data.tempToken}`);
+      const tempSessionDataStr = await this.authService.redisClient.get(
+        `mfa:login:temp:${data.tempToken}`,
+      );
       if (!tempSessionDataStr) {
         throw ErrorFactory.unauthorized('MFA verification session expired or invalid');
       }
@@ -524,7 +526,9 @@ export class AuthController {
       // Successful verification -> create actual session
       await this.authService.redisClient.del(`mfa:login:temp:${data.tempToken}`);
 
-      const plainRefreshToken = this.authService.jwtService.generateRefreshToken(!!tempSessionData.rememberMe);
+      const plainRefreshToken = this.authService.jwtService.generateRefreshToken(
+        !!tempSessionData.rememberMe,
+      );
       const tokenHash = this.authService.jwtService.hashToken(plainRefreshToken);
 
       const session = await this.authService.sessionService.createSession({
@@ -585,12 +589,14 @@ export class AuthController {
       const { userId } = this.getAuthUser(request);
       const recoveryCodes = await this.mfaService.verifyAndEnableTotp(userId, data.code, ctx);
 
-      return reply.status(200).send(
-        createSuccessResponse(
-          { message: 'MFA setup verified and enabled successfully', recoveryCodes },
-          request.id,
-        ),
-      );
+      return reply
+        .status(200)
+        .send(
+          createSuccessResponse(
+            { message: 'MFA setup verified and enabled successfully', recoveryCodes },
+            request.id,
+          ),
+        );
     }
   }
 
@@ -601,12 +607,9 @@ export class AuthController {
 
     await this.mfaService.disableMfa(userId, data.code, ctx);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'MFA successfully disabled' },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(createSuccessResponse({ message: 'MFA successfully disabled' }, request.id));
   }
 
   async rotateRecoveryCodes(request: FastifyRequest, reply: FastifyReply) {
@@ -619,14 +622,8 @@ export class AuthController {
 
     const recoveryCodes = await this.mfaService.rotateRecoveryCodes(userId, code, ctx);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { recoveryCodes },
-        request.id,
-      ),
-    );
+    return reply.status(200).send(createSuccessResponse({ recoveryCodes }, request.id));
   }
-
 
   // ═══════════════════════════════════════════════════
   // ─── SECURITY & AUDIT ENDPOINTS ───────────────────
@@ -636,12 +633,7 @@ export class AuthController {
     const { userId } = this.getAuthUser(request);
     const events = await this.auditRepository.findSecurityEventsForUser(userId);
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { events },
-        request.id,
-      ),
-    );
+    return reply.status(200).send(createSuccessResponse({ events }, request.id));
   }
 
   async getDevices(request: FastifyRequest, reply: FastifyReply) {
@@ -687,7 +679,8 @@ export class AuthController {
     if (sessionMatch) {
       await this.sessionService.revokeSession(id);
     } else {
-      const trusted = await this.trustedDeviceService.trustedDeviceRepository.findAllForUser(userId);
+      const trusted =
+        await this.trustedDeviceService.trustedDeviceRepository.findAllForUser(userId);
       const trustedMatch = trusted.find((t) => t.id === id);
       if (!trustedMatch) {
         throw ErrorFactory.notFound('Session or Trusted Device');
@@ -702,32 +695,19 @@ export class AuthController {
       });
     }
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Device/Session successfully revoked' },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(createSuccessResponse({ message: 'Device/Session successfully revoked' }, request.id));
   }
 
   async getPermissions(request: FastifyRequest, reply: FastifyReply) {
     const permissions = await this.rbacService.getPermissions();
-    return reply.status(200).send(
-      createSuccessResponse(
-        { permissions },
-        request.id,
-      ),
-    );
+    return reply.status(200).send(createSuccessResponse({ permissions }, request.id));
   }
 
   async getRoles(request: FastifyRequest, reply: FastifyReply) {
     const roles = await this.rbacService.getRoles();
-    return reply.status(200).send(
-      createSuccessResponse(
-        { roles },
-        request.id,
-      ),
-    );
+    return reply.status(200).send(createSuccessResponse({ roles }, request.id));
   }
 
   async deleteAccount(request: FastifyRequest, reply: FastifyReply) {
@@ -741,11 +721,8 @@ export class AuthController {
       ...ctx,
     });
 
-    return reply.status(200).send(
-      createSuccessResponse(
-        { message: 'Account deleted successfully.' },
-        request.id,
-      ),
-    );
+    return reply
+      .status(200)
+      .send(createSuccessResponse({ message: 'Account deleted successfully.' }, request.id));
   }
 }

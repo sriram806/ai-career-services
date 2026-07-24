@@ -122,10 +122,7 @@ export class UserRepository {
   }
 
   async softDeleteUser(id: string): Promise<void> {
-    await this.db
-      .update(users)
-      .set({ deletedAt: new Date() })
-      .where(eq(users.id, id));
+    await this.db.update(users).set({ deletedAt: new Date() }).where(eq(users.id, id));
   }
 
   // ─── Credential Methods ─────────────────────────────

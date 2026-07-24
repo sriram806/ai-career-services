@@ -37,7 +37,7 @@ vi.mock('@ai-career-os/database', () => {
       });
     },
   });
-  
+
   return {
     RedisConnection: vi.fn().mockImplementation(() => {
       return {

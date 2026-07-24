@@ -1,5 +1,8 @@
 import * as crypto from 'node:crypto';
-import type { TrustedDeviceRepository, DbTrustedDevice } from '../repositories/trusted-device.repository';
+import type {
+  TrustedDeviceRepository,
+  DbTrustedDevice,
+} from '../repositories/trusted-device.repository';
 import type { AuditRepository } from '../repositories/audit.repository';
 
 export interface DeviceInfo {
@@ -48,7 +51,11 @@ export class TrustedDeviceService {
   /**
    * Checks if the current device is already trusted for this user.
    */
-  async isDeviceTrusted(userId: string, userAgent: string | null, ipAddress: string | null): Promise<boolean> {
+  async isDeviceTrusted(
+    userId: string,
+    userAgent: string | null,
+    ipAddress: string | null,
+  ): Promise<boolean> {
     const fingerprint = this.generateFingerprint(userId, userAgent, ipAddress);
     const device = await this.trustedDeviceRepository.findByFingerprint(userId, fingerprint);
 
@@ -108,7 +115,11 @@ export class TrustedDeviceService {
    * Checks if the current login is from a new/unknown device.
    * Returns true if the device has never been seen before.
    */
-  async isNewDevice(userId: string, userAgent: string | null, ipAddress: string | null): Promise<boolean> {
+  async isNewDevice(
+    userId: string,
+    userAgent: string | null,
+    ipAddress: string | null,
+  ): Promise<boolean> {
     const fingerprint = this.generateFingerprint(userId, userAgent, ipAddress);
     const device = await this.trustedDeviceRepository.findByFingerprint(userId, fingerprint);
     return !device;
@@ -160,7 +171,8 @@ export class TrustedDeviceService {
     else if (/Android/i.test(userAgent)) os = 'Android';
     else if (/iPhone|iPad|iPod/i.test(userAgent)) os = 'iOS';
 
-    if (/Chrome/i.test(userAgent) && !/Edge|Chrome\-Lighthouse/i.test(userAgent)) browser = 'Chrome';
+    if (/Chrome/i.test(userAgent) && !/Edge|Chrome\-Lighthouse/i.test(userAgent))
+      browser = 'Chrome';
     else if (/Safari/i.test(userAgent) && !/Chrome/i.test(userAgent)) browser = 'Safari';
     else if (/Firefox/i.test(userAgent)) browser = 'Firefox';
     else if (/Edg/i.test(userAgent)) browser = 'Edge';

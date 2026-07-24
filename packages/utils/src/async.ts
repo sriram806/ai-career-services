@@ -13,11 +13,7 @@ export function sleep(ms: number): Promise<void> {
  * @param maxRetries - Maximum number of retries (default: 3)
  * @param baseDelay - Base delay in ms (default: 1000)
  */
-export async function retry<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3,
-  baseDelay = 1000,
-): Promise<T> {
+export async function retry<T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 1000): Promise<T> {
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {

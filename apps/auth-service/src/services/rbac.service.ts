@@ -11,11 +11,42 @@ export class RbacService {
     mentor: ['career.read', 'resume.analyze'],
     recruiter: ['career.read', 'resume.analyze', 'notification.send'],
     hiring_manager: ['career.read', 'resume.analyze', 'notification.send'],
-    organization_admin: ['career.read', 'career.write', 'resume.analyze', 'organization.manage', 'billing.manage', 'notification.send'],
+    organization_admin: [
+      'career.read',
+      'career.write',
+      'resume.analyze',
+      'organization.manage',
+      'billing.manage',
+      'notification.send',
+    ],
     content_creator: ['career.read', 'career.write'],
     support_agent: ['career.read', 'notification.send'],
-    platform_administrator: ['career.read', 'career.write', 'exam.start', 'exam.submit', 'resume.upload', 'resume.analyze', 'organization.manage', 'billing.manage', 'admin.manage', 'notification.send', 'analytics.read'],
-    super_administrator: ['career.read', 'career.write', 'exam.start', 'exam.submit', 'resume.upload', 'resume.analyze', 'organization.manage', 'billing.manage', 'admin.manage', 'notification.send', 'analytics.read'],
+    platform_administrator: [
+      'career.read',
+      'career.write',
+      'exam.start',
+      'exam.submit',
+      'resume.upload',
+      'resume.analyze',
+      'organization.manage',
+      'billing.manage',
+      'admin.manage',
+      'notification.send',
+      'analytics.read',
+    ],
+    super_administrator: [
+      'career.read',
+      'career.write',
+      'exam.start',
+      'exam.submit',
+      'resume.upload',
+      'resume.analyze',
+      'organization.manage',
+      'billing.manage',
+      'admin.manage',
+      'notification.send',
+      'analytics.read',
+    ],
   };
 
   constructor(
@@ -99,11 +130,7 @@ export class RbacService {
     return roleNames;
   }
 
-  async assignRoleToUser(
-    userId: string,
-    roleName: string,
-    operatorId?: string,
-  ): Promise<void> {
+  async assignRoleToUser(userId: string, roleName: string, operatorId?: string): Promise<void> {
     const role = await this.rbacRepository.findRoleByName(roleName);
     if (!role) {
       throw ErrorFactory.notFound('Role', roleName);
@@ -120,11 +147,7 @@ export class RbacService {
     });
   }
 
-  async revokeRoleFromUser(
-    userId: string,
-    roleName: string,
-    operatorId?: string,
-  ): Promise<void> {
+  async revokeRoleFromUser(userId: string, roleName: string, operatorId?: string): Promise<void> {
     const role = await this.rbacRepository.findRoleByName(roleName);
     if (!role) {
       throw ErrorFactory.notFound('Role', roleName);

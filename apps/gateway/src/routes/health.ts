@@ -8,11 +8,7 @@ const startTime = Date.now();
  * Health check routes.
  * Provides liveness and readiness probes for Kubernetes.
  */
-export const healthRoutes: FastifyPluginCallback = (
-  fastify: FastifyInstance,
-  _opts,
-  done,
-) => {
+export const healthRoutes: FastifyPluginCallback = (fastify: FastifyInstance, _opts, done) => {
   /**
    * Liveness probe — is the process alive?
    */

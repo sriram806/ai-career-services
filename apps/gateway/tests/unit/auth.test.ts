@@ -17,6 +17,15 @@ describe('Auth Middleware', () => {
       expect(isPublicRoute('/api/v1/auth/login')).toBe(true);
       expect(isPublicRoute('/api/v1/auth/register')).toBe(true);
       expect(isPublicRoute('/api/v1/auth/refresh')).toBe(true);
+      expect(isPublicRoute('/api/v1/auth/oauth/linkedin')).toBe(true);
+      expect(isPublicRoute('/api/v1/auth/oauth/callback?code=test-code&state=test-state')).toBe(
+        true,
+      );
+      expect(
+        isPublicRoute(
+          '/api/v1/profile/linkedin/oauth/callback?code=test-code&state=test-user%3A123',
+        ),
+      ).toBe(true);
     });
 
     it('should identify private routes correctly', () => {
@@ -31,6 +40,29 @@ describe('Auth Middleware', () => {
       const mockReq = { url: '/health' } as any;
       await expect(authenticateRequest(mockReq, {} as any)).resolves.not.toThrow();
       expect(mockReq.user).toBeUndefined();
+    });
+
+    it('should skip authentication on LinkedIn OAuth callback redirects', async () => {
+      const mockReq = {
+        url: '/api/v1/profile/linkedin/oauth/callback?code=test-code&state=test-user%3A123',
+        headers: {},
+      } as any;
+
+      await expect(authenticateRequest(mockReq, {} as any)).resolves.not.toThrow();
+      expect(mockReq.user).toBeUndefined();
+    });
+
+    it('should skip authentication on auth OAuth login and callback routes', async () => {
+      const initiateReq = { url: '/api/v1/auth/oauth/linkedin', headers: {} } as any;
+      const callbackReq = {
+        url: '/api/v1/auth/oauth/callback?code=test-code&state=test-state',
+        headers: {},
+      } as any;
+
+      await expect(authenticateRequest(initiateReq, {} as any)).resolves.not.toThrow();
+      await expect(authenticateRequest(callbackReq, {} as any)).resolves.not.toThrow();
+      expect(initiateReq.user).toBeUndefined();
+      expect(callbackReq.user).toBeUndefined();
     });
 
     it('should throw unauthorized error when authorization header is missing', async () => {

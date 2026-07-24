@@ -62,11 +62,7 @@ export class SessionRepository {
   }
 
   async findById(id: string): Promise<DbSession | null> {
-    const result = await this.db
-      .select()
-      .from(sessions)
-      .where(eq(sessions.id, id))
-      .limit(1);
+    const result = await this.db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
     return (result[0] as DbSession) || null;
   }
 
@@ -151,16 +147,10 @@ export class SessionRepository {
   }
 
   async updateSessionRefreshTokenHash(id: string, refreshTokenHash: string): Promise<void> {
-    await this.db
-      .update(sessions)
-      .set({ refreshTokenHash })
-      .where(eq(sessions.id, id));
+    await this.db.update(sessions).set({ refreshTokenHash }).where(eq(sessions.id, id));
   }
 
   async updateLastActivity(id: string): Promise<void> {
-    await this.db
-      .update(sessions)
-      .set({ lastActivityAt: new Date() })
-      .where(eq(sessions.id, id));
+    await this.db.update(sessions).set({ lastActivityAt: new Date() }).where(eq(sessions.id, id));
   }
 }

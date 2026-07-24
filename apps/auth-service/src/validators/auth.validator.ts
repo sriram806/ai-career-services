@@ -16,25 +16,30 @@ const PASSWORD_SCHEMA = z
   .regex(/[^a-zA-Z0-9]/, 'Password must contain at least one special character');
 
 // ─── Registration ──────────────────────────────────
-export const registerSchema = z.object({
-  email: z.string().email('Invalid email address format').max(255),
-  username: z
-    .string()
-    .min(6, 'Username must be at least 6 characters long')
-    .max(50, 'Username must not exceed 50 characters')
-    .regex(/^[a-zA-Z0-9_\-]+$/, 'Username can only contain alphanumeric characters, underscores, and hyphens'),
-  password: PASSWORD_SCHEMA,
-  confirmPassword: z.string(),
-  fullName: z.string().min(2, 'Full name is required').max(200).optional(),
-  phone: z.string().min(7).max(20).optional(),
-  university: z.string().max(255).optional(),
-  country: z.string().max(100).optional(),
-  termsAccepted: z.boolean().optional(),
-  role: z.nativeEnum(UserRole).default(UserRole.CANDIDATE),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+export const registerSchema = z
+  .object({
+    email: z.string().email('Invalid email address format').max(255),
+    username: z
+      .string()
+      .min(6, 'Username must be at least 6 characters long')
+      .max(50, 'Username must not exceed 50 characters')
+      .regex(
+        /^[a-zA-Z0-9_\-]+$/,
+        'Username can only contain alphanumeric characters, underscores, and hyphens',
+      ),
+    password: PASSWORD_SCHEMA,
+    confirmPassword: z.string(),
+    fullName: z.string().min(2, 'Full name is required').max(200).optional(),
+    phone: z.string().min(7).max(20).optional(),
+    university: z.string().max(255).optional(),
+    country: z.string().max(100).optional(),
+    termsAccepted: z.boolean().optional(),
+    role: z.nativeEnum(UserRole).default(UserRole.CANDIDATE),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 // ─── Login ─────────────────────────────────────────
 export const loginSchema = z.object({
@@ -42,8 +47,6 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
   rememberMe: z.boolean().optional().default(false),
 });
-
-
 
 // ─── Change Password (authenticated) ───────────────
 export const changePasswordSchema = z.object({
@@ -64,7 +67,8 @@ export const resetPasswordSchema = z.object({
 
 // ─── Email Verification ───────────────────────────
 export const verifyEmailSchema = z.object({
-  token: z.string().min(1, 'Verification token is required'),
+  email: z.string().email('Invalid email address format'),
+  code: z.string().min(6, 'Verification code must be 6 digits').max(6),
 });
 
 // ─── Resend Verification ──────────────────────────
@@ -88,10 +92,10 @@ export const mfaDisableSchema = z.object({
   code: z.string().min(1),
 });
 
-
 // ─── OAuth Initiate ───────────────────────────────
 export const oauthInitiateSchema = z.object({
   redirectUri: z.string().url().optional(),
+  intent: z.enum(['login', 'register']).optional().default('login'),
 });
 
 // ─── OAuth Unlink ─────────────────────────────────

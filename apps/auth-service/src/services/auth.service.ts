@@ -31,13 +31,7 @@ export interface RequestContext {
 
 // ─── Utility: strip internal-only fields from user response ───
 function sanitizeUser(user: DbUser) {
-  const {
-    deletedAt,
-    failedLoginAttempts,
-    lockUntil,
-    lastFailedLogin,
-    ...safeUser
-  } = user;
+  const { deletedAt, failedLoginAttempts, lockUntil, lastFailedLogin, ...safeUser } = user;
   return safeUser;
 }
 
@@ -103,17 +97,19 @@ export class AuthService {
    *
    * Returns the created user (caller is responsible for email verification flow).
    */
-  async register(data: {
-    email: string;
-    username: string;
-    password: string;
-    fullName?: string;
-    phone?: string;
-    university?: string;
-    country?: string;
-    termsAccepted?: boolean;
-    role: string;
-  } & RequestContext): Promise<{ user: DbUser }> {
+  async register(
+    data: {
+      email: string;
+      username: string;
+      password: string;
+      fullName?: string;
+      phone?: string;
+      university?: string;
+      country?: string;
+      termsAccepted?: boolean;
+      role: string;
+    } & RequestContext,
+  ): Promise<{ user: DbUser }> {
     // 1. Validate password policy
     const policy = this.passwordService.validatePasswordPolicy(data.password, {
       username: data.username,
@@ -202,11 +198,13 @@ export class AuthService {
    *   - Dummy Argon2 verification on non-existent email
    *   - Generic error message for all failure modes
    */
-  async login(data: {
-    email: string;
-    password: string;
-    rememberMe?: boolean;
-  } & RequestContext): Promise<AuthResponse> {
+  async login(
+    data: {
+      email: string;
+      password: string;
+      rememberMe?: boolean;
+    } & RequestContext,
+  ): Promise<AuthResponse> {
     const email = data.email.toLowerCase().trim();
     const lockoutKey = `login:lockout:${email}`;
     const attemptsKey = `login:attempts:${email}`;
@@ -222,8 +220,8 @@ export class AuthService {
             field: 'lockout',
             message: 'Multiple failed login attempts',
             code: lockoutTTL.toString(),
-          }
-        ]
+          },
+        ],
       );
     }
 
@@ -245,8 +243,8 @@ export class AuthService {
             field: 'lockout',
             message: 'Multiple failed login attempts',
             code: remainingSeconds.toString(),
-          }
-        ]
+          },
+        ],
       );
     }
 
@@ -263,31 +261,48 @@ export class AuthService {
     // 5. Verify credentials
     const credentials = await this.userRepository.getCredentialsByUserId(user.id);
     if (!credentials) {
-      const attempts = await this.recordFailedLogin(email, user.id, data.ipAddress, data.userAgent, 'Missing credentials');
-      
+      const attempts = await this.recordFailedLogin(
+        email,
+        user.id,
+        data.ipAddress,
+        data.userAgent,
+        'Missing credentials',
+      );
+
       const remaining = 5 - attempts;
-      const msg = remaining > 0
-        ? `Incorrect password. You have ${remaining} attempt${remaining > 1 ? 's' : ''} remaining before account is temporarily locked.`
-        : `Incorrect password.`;
+      const msg =
+        remaining > 0
+          ? `Incorrect password. You have ${remaining} attempt${remaining > 1 ? 's' : ''} remaining before account is temporarily locked.`
+          : `Incorrect password.`;
 
       throw ErrorFactory.unauthorized(msg);
     }
 
-    const isPasswordMatch = await this.passwordService.verifyPassword(data.password, credentials.passwordHash);
+    const isPasswordMatch = await this.passwordService.verifyPassword(
+      data.password,
+      credentials.passwordHash,
+    );
     if (!isPasswordMatch) {
       // Apply progressive delay before responding
-      const currentAttempts = Number(await this.redisClient.get(attemptsKey) ?? 0) + 1;
+      const currentAttempts = Number((await this.redisClient.get(attemptsKey)) ?? 0) + 1;
       const delayMs = AuthService.DELAY_SCHEDULE[currentAttempts] ?? 0;
       if (delayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
 
-      const attempts = await this.recordFailedLogin(email, user.id, data.ipAddress, data.userAgent, 'Invalid password');
-      
+      const attempts = await this.recordFailedLogin(
+        email,
+        user.id,
+        data.ipAddress,
+        data.userAgent,
+        'Invalid password',
+      );
+
       const remaining = 5 - attempts;
-      const msg = remaining > 0
-        ? `Incorrect password. You have ${remaining} attempt${remaining > 1 ? 's' : ''} remaining before account is temporarily locked.`
-        : `Incorrect password.`;
+      const msg =
+        remaining > 0
+          ? `Incorrect password. You have ${remaining} attempt${remaining > 1 ? 's' : ''} remaining before account is temporarily locked.`
+          : `Incorrect password.`;
 
       throw ErrorFactory.unauthorized(msg);
     }
@@ -299,7 +314,7 @@ export class AuthService {
 
     // Check if MFA is enabled (only TOTP MFA is supported since email OTP passcode is removed)
     const mfa = await this.mfaRepository.findByUserId(user.id);
-    
+
     if (mfa && mfa.totpEnabled) {
       // MFA required - generate temporary verification session
       const tempToken = crypto.randomBytes(32).toString('hex');
@@ -314,7 +329,7 @@ export class AuthService {
         `mfa:login:temp:${tempToken}`,
         JSON.stringify(tempSessionData),
         'EX',
-        300 // 5 minutes
+        300, // 5 minutes
       );
 
       return {
@@ -401,9 +416,11 @@ export class AuthService {
    *   lineage is revoked immediately. This defends against token theft
    *   where both the legitimate user and attacker race to use the token.
    */
-  async refresh(data: {
-    refreshToken: string;
-  } & RequestContext): Promise<{ accessToken: string; refreshToken: string; isRememberMe: boolean }> {
+  async refresh(
+    data: {
+      refreshToken: string;
+    } & RequestContext,
+  ): Promise<{ accessToken: string; refreshToken: string; isRememberMe: boolean }> {
     const incomingTokenHash = this.jwtService.hashToken(data.refreshToken);
 
     // 1. Look up refresh token
@@ -496,9 +513,11 @@ export class AuthService {
   /**
    * Logs out by revoking the session associated with the provided refresh token.
    */
-  async logout(data: {
-    refreshToken: string;
-  } & RequestContext): Promise<void> {
+  async logout(
+    data: {
+      refreshToken: string;
+    } & RequestContext,
+  ): Promise<void> {
     const hash = this.jwtService.hashToken(data.refreshToken);
     const tokenRecord = await this.refreshTokenRepository.findByTokenHash(hash);
 
@@ -544,18 +563,23 @@ export class AuthService {
    *   - Password history check (no reuse of previous 5)
    *   - Revokes all other sessions after change
    */
-  async changePassword(data: {
-    userId: string;
-    passwordOld: string;
-    passwordNew: string;
-    currentSessionId?: string;
-  } & RequestContext): Promise<void> {
+  async changePassword(
+    data: {
+      userId: string;
+      passwordOld: string;
+      passwordNew: string;
+      currentSessionId?: string;
+    } & RequestContext,
+  ): Promise<void> {
     const credentials = await this.userRepository.getCredentialsByUserId(data.userId);
     if (!credentials) {
       throw ErrorFactory.badRequest('Credentials record not found');
     }
 
-    const isMatch = await this.passwordService.verifyPassword(data.passwordOld, credentials.passwordHash);
+    const isMatch = await this.passwordService.verifyPassword(
+      data.passwordOld,
+      credentials.passwordHash,
+    );
     if (!isMatch) {
       throw ErrorFactory.unauthorized('Incorrect current password');
     }
@@ -571,7 +595,10 @@ export class AuthService {
 
     // Password history check
     const previousHashes = await this.passwordHistoryRepository.getRecentHashes(data.userId, 5);
-    const isReuse = await this.passwordService.isPasswordInHistory(data.passwordNew, previousHashes);
+    const isReuse = await this.passwordService.isPasswordInHistory(
+      data.passwordNew,
+      previousHashes,
+    );
     if (isReuse) {
       throw ErrorFactory.badRequest(
         'New password cannot be the same as any of your previous 5 passwords',
@@ -609,7 +636,9 @@ export class AuthService {
    * Fetches sanitized profile for the authenticated user.
    * Strips all security-internal fields (lockout state, deleted_at, etc.).
    */
-  async getMe(userId: string): Promise<ReturnType<typeof sanitizeUser> & { mfaEnabled: boolean; mfaType: string | null }> {
+  async getMe(
+    userId: string,
+  ): Promise<ReturnType<typeof sanitizeUser> & { mfaEnabled: boolean; mfaType: string | null }> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw ErrorFactory.notFound('User');
@@ -618,7 +647,7 @@ export class AuthService {
     const sanitized = sanitizeUser(user);
     return {
       ...sanitized,
-      mfaEnabled: mfa ? (mfa.totpEnabled || mfa.emailEnabled) : false,
+      mfaEnabled: mfa ? mfa.totpEnabled || mfa.emailEnabled : false,
       mfaType: mfa ? (mfa.totpEnabled ? 'totp' : mfa.emailEnabled ? 'email' : null) : null,
     };
   }
@@ -701,15 +730,20 @@ export class AuthService {
     return dbAttempts;
   }
 
-  async deleteAccount(data: {
-    userId: string;
-    password?: string;
-  } & RequestContext): Promise<void> {
+  async deleteAccount(
+    data: {
+      userId: string;
+      password?: string;
+    } & RequestContext,
+  ): Promise<void> {
     const credentials = await this.userRepository.getCredentialsByUserId(data.userId);
 
     if (credentials && credentials.passwordHash) {
       if (data.password) {
-        const isMatch = await this.passwordService.verifyPassword(data.password, credentials.passwordHash);
+        const isMatch = await this.passwordService.verifyPassword(
+          data.password,
+          credentials.passwordHash,
+        );
         if (!isMatch) {
           throw ErrorFactory.unauthorized('Incorrect password');
         }

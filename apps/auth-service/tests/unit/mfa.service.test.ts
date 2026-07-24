@@ -25,9 +25,7 @@ describe('MfaService Unit Tests', () => {
       findRecoveryCodesByUserId: vi.fn().mockImplementation(() => {
         const crypto = require('node:crypto');
         const hash = crypto.createHash('sha256').update('TEST-CODE').digest('hex');
-        return Promise.resolve([
-          { id: 'c1', codeHash: hash, isUsed: false }
-        ]);
+        return Promise.resolve([{ id: 'c1', codeHash: hash, isUsed: false }]);
       }),
       markRecoveryCodeUsed: vi.fn().mockResolvedValue(undefined),
       deleteRecoveryCodes: vi.fn().mockResolvedValue(undefined),
@@ -36,8 +34,6 @@ describe('MfaService Unit Tests', () => {
     mockAuditRepository = {
       createSecurityEvent: vi.fn().mockResolvedValue(undefined),
     };
-
-
 
     mockRedisClient = {
       get: vi.fn().mockImplementation((key) => Promise.resolve(redisStore[key] || null)),
@@ -70,9 +66,15 @@ describe('MfaService Unit Tests', () => {
     const counter = Math.floor(Date.now() / 30000);
     // Directly use Totp.verifyToken or generate the token using internal method
     // Since verifyToken matches, let's create a token
-    const token = (Totp as any).generateTokenForCounter((Totp as any).decodeBase32(secret), counter);
+    const token = (Totp as any).generateTokenForCounter(
+      (Totp as any).decodeBase32(secret),
+      counter,
+    );
 
-    const recoveryCodes = await service.verifyAndEnableTotp('user-uuid', token, { ipAddress: '127.0.0.1', userAgent: 'test' });
+    const recoveryCodes = await service.verifyAndEnableTotp('user-uuid', token, {
+      ipAddress: '127.0.0.1',
+      userAgent: 'test',
+    });
 
     expect(recoveryCodes.length).toBe(10);
     expect(mockMfaRepository.upsertSettings).toHaveBeenCalled();
@@ -83,7 +85,10 @@ describe('MfaService Unit Tests', () => {
   it('should verify active TOTP code successfully during validation', async () => {
     const secret = 'MOCKSECRET32CHARS234567';
     const counter = Math.floor(Date.now() / 30000);
-    const token = (Totp as any).generateTokenForCounter((Totp as any).decodeBase32(secret), counter);
+    const token = (Totp as any).generateTokenForCounter(
+      (Totp as any).decodeBase32(secret),
+      counter,
+    );
 
     const verified = await service.verifyMfaToken('user-uuid', token);
     expect(verified).toBe(true);
@@ -100,7 +105,10 @@ describe('MfaService Unit Tests', () => {
   it('should disable MFA successfully and clean up recovery codes', async () => {
     const secret = 'MOCKSECRET32CHARS234567';
     const counter = Math.floor(Date.now() / 30000);
-    const token = (Totp as any).generateTokenForCounter((Totp as any).decodeBase32(secret), counter);
+    const token = (Totp as any).generateTokenForCounter(
+      (Totp as any).decodeBase32(secret),
+      counter,
+    );
 
     await service.disableMfa('user-uuid', token, { ipAddress: '127.0.0.1', userAgent: 'test' });
 

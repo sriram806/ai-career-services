@@ -35,13 +35,23 @@ export function errorHandler(
 
   // Handle Fastify-specific errors with status codes
   if ('statusCode' in error && typeof error.statusCode === 'number') {
+    const isRateLimit = error.statusCode === 429;
+    const routeConfig = (request as any).routeOptions?.config || (request as any).routeConfig;
+    const rateLimitConfig = routeConfig?.rateLimit;
+
     void reply.status(error.statusCode).send({
       success: false,
       error: {
-        code: ErrorCode.BAD_REQUEST,
+        code: isRateLimit ? ErrorCode.RATE_LIMIT_EXCEEDED : ErrorCode.BAD_REQUEST,
         message: error.message,
         requestId,
         timestamp: new Date().toISOString(),
+        ...(isRateLimit && rateLimitConfig && {
+          details: {
+            limit: rateLimitConfig.max,
+            windowMs: rateLimitConfig.timeWindow,
+          }
+        }),
       },
     });
     return;
@@ -55,9 +65,7 @@ export function errorHandler(
     error: {
       code: ErrorCode.INTERNAL_SERVER_ERROR,
       message:
-        process.env['NODE_ENV'] === 'production'
-          ? 'An unexpected error occurred'
-          : error.message,
+        process.env['NODE_ENV'] === 'production' ? 'An unexpected error occurred' : error.message,
       requestId,
       timestamp: new Date().toISOString(),
       ...(process.env['NODE_ENV'] === 'development' && { stack: error.stack }),

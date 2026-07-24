@@ -7,7 +7,7 @@ AI Career OS is built as a **distributed microservices platform** following indu
 ```mermaid
 graph TB
     Client[Client Applications] --> GW[API Gateway :3000]
-    
+
     GW --> Auth[Auth Service :3001]
     GW --> User[User Service :3002]
     GW --> Career[Career Service :3003]
@@ -18,7 +18,8 @@ graph TB
     GW --> Notif[Notification Service :3008]
     GW --> Admin[Admin Service :3009]
     GW --> Analytics[Analytics Service :3010]
-    
+    GW --> GitHub[GitHub Import Service :3012]
+
     Auth --> PG[(PostgreSQL)]
     User --> PG
     Career --> PG
@@ -26,14 +27,14 @@ graph TB
     Org --> PG
     Billing --> PG
     Admin --> PG
-    
+
     AI --> Mongo[(MongoDB)]
     Analytics --> Mongo
     Career --> Mongo
-    
+
     Auth --> Redis[(Redis)]
     User --> Redis
-    
+
     subgraph Event Bus
         Redis
     end
@@ -42,7 +43,9 @@ graph TB
 ## Architectural Principles
 
 ### 1. Clean Architecture
+
 Each service follows the dependency inversion principle:
+
 - **Controllers** → Handle HTTP
 - **Services** → Business logic
 - **Repositories** → Data access
@@ -51,9 +54,12 @@ Each service follows the dependency inversion principle:
 Dependencies point inward — business logic never depends on frameworks or databases.
 
 ### 2. Domain-Driven Design
+
 Each service represents a **Bounded Context**:
+
 - Auth → Identity & Access
-- User → User Profiles
+- User → User Profiles & Unified Student Workspace
+- GitHub Import → Developer Evidence & GitHub Ingest
 - Career → Career Intelligence
 - Exam → Assessments
 - AI → Machine Learning
@@ -64,13 +70,17 @@ Each service represents a **Bounded Context**:
 - Analytics → Data Intelligence
 
 ### 3. Event-Driven Communication
+
 Services communicate through events via Redis Pub/Sub (future: Kafka):
+
 - **User Created** → Notification Service sends welcome email
 - **Resume Uploaded** → AI Service triggers analysis
 - **Payment Succeeded** → Billing Service activates subscription
 
 ### 4. API Gateway Pattern
+
 The Gateway service handles:
+
 - Request routing
 - Rate limiting
 - CORS
@@ -78,6 +88,7 @@ The Gateway service handles:
 - Correlation ID propagation
 
 ### 5. Observability
+
 - **Structured JSON logging** (Pino / structlog)
 - **Correlation IDs** across all service calls
 - **Request ID** propagation
@@ -85,25 +96,25 @@ The Gateway service handles:
 
 ## Data Architecture
 
-| Database | Use Case | Services |
-|----------|----------|----------|
-| **PostgreSQL** | Relational data, transactions, ACID compliance | Auth, User, Career, Exam, Org, Billing, Admin |
-| **MongoDB** | Unstructured data, documents, flexible schemas | AI, Analytics, Career (documents) |
-| **Redis** | Caching, sessions, event pub/sub, rate limiting | All services |
+| Database       | Use Case                                        | Services                                      |
+| -------------- | ----------------------------------------------- | --------------------------------------------- |
+| **PostgreSQL** | Relational data, transactions, ACID compliance  | Auth, User, Career, Exam, Org, Billing, Admin |
+| **MongoDB**    | Unstructured data, documents, flexible schemas  | AI, Analytics, Career (documents)             |
+| **Redis**      | Caching, sessions, event pub/sub, rate limiting | All services                                  |
 
 ## Security Architecture
 
-| Layer | Mechanism |
-|-------|-----------|
-| **Transport** | HTTPS (TLS termination at load balancer) |
-| **Headers** | Helmet.js security headers |
-| **CORS** | Restricted origin whitelist |
-| **Rate Limiting** | Per-IP sliding window |
-| **Input Validation** | Zod / Pydantic schema validation |
-| **Authentication** | JWT tokens (future implementation) |
-| **Authorization** | RBAC with role hierarchy |
-| **Secrets** | Environment variables (future: Vault/Secrets Manager) |
-| **Logging** | Sensitive field redaction |
+| Layer                | Mechanism                                             |
+| -------------------- | ----------------------------------------------------- |
+| **Transport**        | HTTPS (TLS termination at load balancer)              |
+| **Headers**          | Helmet.js security headers                            |
+| **CORS**             | Restricted origin whitelist                           |
+| **Rate Limiting**    | Per-IP sliding window                                 |
+| **Input Validation** | Zod / Pydantic schema validation                      |
+| **Authentication**   | JWT tokens (future implementation)                    |
+| **Authorization**    | RBAC with role hierarchy                              |
+| **Secrets**          | Environment variables (future: Vault/Secrets Manager) |
+| **Logging**          | Sensitive field redaction                             |
 
 ## Deployment Architecture (Target)
 

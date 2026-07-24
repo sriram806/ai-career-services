@@ -73,10 +73,7 @@ export class TrustedDeviceRepository {
       .select()
       .from(trustedDevices)
       .where(
-        and(
-          eq(trustedDevices.userId, userId),
-          gt(trustedDevices.expiresAt, new Date()),
-        ),
+        and(eq(trustedDevices.userId, userId), gt(trustedDevices.expiresAt, new Date())),
       ) as Promise<DbTrustedDevice[]>;
   }
 
@@ -88,14 +85,10 @@ export class TrustedDeviceRepository {
   }
 
   async deleteDevice(id: string): Promise<void> {
-    await this.db
-      .delete(trustedDevices)
-      .where(eq(trustedDevices.id, id));
+    await this.db.delete(trustedDevices).where(eq(trustedDevices.id, id));
   }
 
   async deleteAllForUser(userId: string): Promise<void> {
-    await this.db
-      .delete(trustedDevices)
-      .where(eq(trustedDevices.userId, userId));
+    await this.db.delete(trustedDevices).where(eq(trustedDevices.userId, userId));
   }
 }

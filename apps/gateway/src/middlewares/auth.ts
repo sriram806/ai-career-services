@@ -15,6 +15,10 @@ const PUBLIC_PREFIXES = [
   '/docs',
   '/swagger',
   '/openapi.json',
+  // Login/registration OAuth redirects start without an app Bearer token
+  '/api/v1/auth/oauth',
+  // LinkedIn OAuth callback — LinkedIn redirects here without a Bearer token
+  '/api/v1/profile/linkedin/oauth/callback',
 ];
 
 const PUBLIC_EXACT_ROUTES = [
@@ -25,6 +29,7 @@ const PUBLIC_EXACT_ROUTES = [
   '/api/v1/auth/forgot-password',
   '/api/v1/auth/reset-password',
   '/api/v1/auth/verify-email',
+  '/api/v1/auth/resend-verification',
   '/auth/register',
   '/auth/login',
   '/auth/refresh',
@@ -32,6 +37,7 @@ const PUBLIC_EXACT_ROUTES = [
   '/auth/forgot-password',
   '/auth/reset-password',
   '/auth/verify-email',
+  '/auth/resend-verification',
 ];
 
 /**
@@ -40,7 +46,7 @@ const PUBLIC_EXACT_ROUTES = [
 export function isPublicRoute(url: string): boolean {
   // Strip query parameters
   const pathname = url.split('?')[0] || '/';
-  
+
   if (PUBLIC_EXACT_ROUTES.includes(pathname)) {
     return true;
   }

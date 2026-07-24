@@ -51,10 +51,7 @@ export class PostgresConnection {
     const result = await client.query('SELECT NOW()');
     client.release();
 
-    this.logger.info(
-      { timestamp: result.rows[0] },
-      'PostgreSQL connected successfully',
-    );
+    this.logger.info({ timestamp: result.rows[0] }, 'PostgreSQL connected successfully');
 
     this.db = drizzle(this.pool);
     return this.db;

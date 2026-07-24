@@ -57,8 +57,6 @@ export class PasswordResetRepository {
   }
 
   async invalidateAllForUser(userId: string): Promise<void> {
-    await this.db
-      .delete(passwordResetTokens)
-      .where(eq(passwordResetTokens.userId, userId));
+    await this.db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
   }
 }

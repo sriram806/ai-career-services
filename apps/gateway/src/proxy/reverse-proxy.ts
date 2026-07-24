@@ -72,10 +72,7 @@ function recordFailure(serviceName: string) {
  * - Request correlation ID propagation
  * - User authentication context forwarding
  */
-export function proxyTo(
-  serviceUrl: string,
-  serviceName: string,
-) {
+export function proxyTo(serviceUrl: string, serviceName: string) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     // 1. Circuit Breaker Check
     if (!checkCircuit(serviceName)) {
@@ -93,8 +90,7 @@ export function proxyTo(
     // 3. Populate correlation, request, and client headers
     const headers: Record<string, string> = {
       'x-request-id': (request.id as string) ?? 'unknown',
-      'x-correlation-id':
-        (reply.getHeader('x-correlation-id') as string) ?? (request.id as string),
+      'x-correlation-id': (reply.getHeader('x-correlation-id') as string) ?? (request.id as string),
       'x-forwarded-for': request.ip,
       'user-agent': request.headers['user-agent'] ?? '',
     };

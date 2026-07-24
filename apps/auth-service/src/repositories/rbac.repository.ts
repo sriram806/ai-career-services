@@ -30,11 +30,7 @@ export class RbacRepository {
   }
 
   async findRoleByName(name: string): Promise<DbRole | null> {
-    const result = await this.db
-      .select()
-      .from(roles)
-      .where(eq(roles.name, name))
-      .limit(1);
+    const result = await this.db.select().from(roles).where(eq(roles.name, name)).limit(1);
     return (result[0] as DbRole) || null;
   }
 
@@ -92,12 +88,7 @@ export class RbacRepository {
   async removeRoleFromUser(userId: string, roleId: string): Promise<void> {
     await this.db
       .delete(userRoles)
-      .where(
-        and(
-          eq(userRoles.userId, userId),
-          eq(userRoles.roleId, roleId),
-        ),
-      );
+      .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
   }
 
   async findUserRoles(userId: string): Promise<DbRole[]> {
@@ -109,10 +100,7 @@ export class RbacRepository {
     if (userRoleIds.length === 0) return [];
 
     const ids = userRoleIds.map((ur) => ur.roleId);
-    return this.db
-      .select()
-      .from(roles)
-      .where(inArray(roles.id, ids)) as Promise<DbRole[]>;
+    return this.db.select().from(roles).where(inArray(roles.id, ids)) as Promise<DbRole[]>;
   }
 
   async findUserPermissions(userId: string): Promise<DbPermission[]> {
@@ -137,9 +125,8 @@ export class RbacRepository {
     const pIds = permIdsResult.map((pr) => pr.permissionId);
 
     // 3. Get permissions
-    return this.db
-      .select()
-      .from(permissions)
-      .where(inArray(permissions.id, pIds)) as Promise<DbPermission[]>;
+    return this.db.select().from(permissions).where(inArray(permissions.id, pIds)) as Promise<
+      DbPermission[]
+    >;
   }
 }

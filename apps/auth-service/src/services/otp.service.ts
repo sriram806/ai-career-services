@@ -71,7 +71,7 @@ export class OtpService {
     }
 
     // 3. Enforce hourly limit (max 3 requests per hour)
-    const hourlyCount = Number(await this.redisClient.get(hourlyKey) ?? 0);
+    const hourlyCount = Number((await this.redisClient.get(hourlyKey)) ?? 0);
     if (hourlyCount >= this.maxHourlyRequests) {
       // Trigger abuse suspension for 1 hour
       await this.redisClient.set(suspendKey, '1', 'EX', 3600);
@@ -133,7 +133,7 @@ export class OtpService {
 
     // 1. Fetch active hash from Redis (fast path) or PostgreSQL (fallback)
     let cachedHash = await this.redisClient.get(redisKey);
-    let attempts = Number(await this.redisClient.get(attemptsKey) ?? 0);
+    let attempts = Number((await this.redisClient.get(attemptsKey)) ?? 0);
     let dbCode: DbOtpCode | null = null;
 
     if (!cachedHash) {

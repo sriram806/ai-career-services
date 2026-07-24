@@ -2,7 +2,8 @@ import { ErrorFactory } from '@ai-career-os/errors';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 
 // ─── Injection Pattern Regular Expressions ──────────
-const SQL_INJECTION_REGEX = /\b(UNION\s+(?:ALL\s+)?SELECT|SELECT\s+.*\s+FROM|INSERT\s+INTO|UPDATE\s+.*\s+SET|DELETE\s+FROM|DROP\s+TABLE)\b|(--)|(\/\*)|(\*\/)|OR\s+['"]?\d+['"]?\s*=\s*['"]?\d+/i;
+const SQL_INJECTION_REGEX =
+  /\b(UNION\s+(?:ALL\s+)?SELECT|SELECT\s+.*\s+FROM|INSERT\s+INTO|UPDATE\s+.*\s+SET|DELETE\s+FROM|DROP\s+TABLE)\b|(--)|(\/\*)|(\*\/)|OR\s+['"]?\d+['"]?\s*=\s*['"]?\d+/i;
 const NOSQL_INJECTION_REGEX = /\$(?:eq|ne|gt|gte|lt|lte|in|nin|and|or|not|expr|exists|regex)/i;
 
 /**
@@ -87,7 +88,8 @@ export async function validateRequestSecurity(
   }
 
   // Scan Request body
-  if (request.body && hasInjectionSignature(request.body)) {
+  const isMultipart = (request.headers['content-type'] || '').startsWith('multipart/form-data');
+  if (!isMultipart && request.body && hasInjectionSignature(request.body)) {
     throw ErrorFactory.badRequest('Security Validation Failed: Malicious content detected in body');
   }
 }

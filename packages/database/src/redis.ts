@@ -16,7 +16,7 @@ export class RedisConnection {
       port: number;
       password?: string;
       db?: number;
-      maxRetriesPerRequest?: number;
+      maxRetriesPerRequest?: number | null;
     },
     logger: Logger,
   ) {
@@ -36,7 +36,7 @@ export class RedisConnection {
       port: this.config.port,
       password: this.config.password,
       db: this.config.db ?? 0,
-      maxRetriesPerRequest: this.config.maxRetriesPerRequest ?? 3,
+      maxRetriesPerRequest: this.config.maxRetriesPerRequest !== undefined ? this.config.maxRetriesPerRequest : 3,
       retryStrategy(times: number) {
         const delay = Math.min(times * 200, 5000);
         return delay;

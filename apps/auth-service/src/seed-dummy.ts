@@ -49,11 +49,7 @@ async function seed() {
 
   for (const dummyUser of dummyUsers) {
     // Check if user already exists
-    const existing = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, dummyUser.email))
-      .limit(1);
+    const existing = await db.select().from(users).where(eq(users.email, dummyUser.email)).limit(1);
 
     if (existing.length > 0) {
       console.log(`User ${dummyUser.email} already exists. Skipping.`);

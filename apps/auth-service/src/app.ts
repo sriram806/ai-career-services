@@ -19,13 +19,13 @@ import { SessionRepository } from './repositories/session.repository';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { AuditRepository } from './repositories/audit.repository';
 import { PasswordHistoryRepository } from './repositories/password-history.repository';
-import { EmailVerificationRepository } from './repositories/email-verification.repository';
 import { PasswordResetRepository } from './repositories/password-reset.repository';
 import { TrustedDeviceRepository } from './repositories/trusted-device.repository';
 import { LoginAttemptRepository } from './repositories/login-attempt.repository';
 import { OAuthRepository } from './repositories/oauth.repository';
 import { MfaRepository } from './repositories/mfa.repository';
 import { RbacRepository } from './repositories/rbac.repository';
+import { OtpRepository } from './repositories/otp.repository';
 
 // ─── Services ─────────────────────────────────────
 import { EmailService } from './services/email.service';
@@ -40,6 +40,7 @@ import { TrustedDeviceService } from './services/trusted-device.service';
 import { OAuthService } from './services/oauth.service';
 import { MfaService } from './services/mfa.service';
 import { RbacService } from './services/rbac.service';
+import { OtpService } from './services/otp.service';
 
 // ─── Controller & Routes ──────────────────────────
 import { AuthController } from './controllers/auth.controller';
@@ -108,13 +109,13 @@ export async function buildApp(logger: any): Promise<any> {
   const refreshTokenRepository = new RefreshTokenRepository(db);
   const auditRepository = new AuditRepository(db);
   const passwordHistoryRepository = new PasswordHistoryRepository(db);
-  const emailVerificationRepository = new EmailVerificationRepository(db);
   const passwordResetRepository = new PasswordResetRepository(db);
   const trustedDeviceRepository = new TrustedDeviceRepository(db);
   const loginAttemptRepository = new LoginAttemptRepository(db);
   const oauthRepository = new OAuthRepository(db);
   const mfaRepository = new MfaRepository(db);
   const rbacRepository = new RbacRepository(db);
+  const otpRepository = new OtpRepository(db);
 
   // ─── Service Layer ──────────────────────────────
   const emailService = new EmailService(
@@ -137,13 +138,9 @@ export async function buildApp(logger: any): Promise<any> {
     audience: 'ai-career-os-app',
   });
 
-
   const sessionService = new SessionService(sessionRepository);
 
-  const trustedDeviceService = new TrustedDeviceService(
-    trustedDeviceRepository,
-    auditRepository,
-  );
+  const trustedDeviceService = new TrustedDeviceService(trustedDeviceRepository, auditRepository);
 
   const rbacService = new RbacService(rbacRepository, auditRepository, redisClient);
   const mfaService = new MfaService(mfaRepository, auditRepository, redisClient);
@@ -164,12 +161,17 @@ export async function buildApp(logger: any): Promise<any> {
     logger.error({ err }, 'Failed to seed default roles and permissions');
   });
 
-  const emailVerificationService = new EmailVerificationService(
-    emailVerificationRepository,
+  const otpService = new OtpService(
+    otpRepository,
     userRepository,
-    auditRepository,
     redisClient,
     emailService,
+  );
+
+  const emailVerificationService = new EmailVerificationService(
+    userRepository,
+    auditRepository,
+    otpService,
   );
 
   const passwordResetService = new PasswordResetService(
@@ -267,9 +269,7 @@ export async function buildApp(logger: any): Promise<any> {
           'session management, device trust, password reset, OTP, and audit logging.',
         version: '1.0.0',
       },
-      servers: [
-        { url: `http://localhost:${config.PORT}`, description: 'Local Development' },
-      ],
+      servers: [{ url: `http://localhost:${config.PORT}`, description: 'Local Development' }],
       tags: [
         { name: 'auth', description: 'Authentication lifecycle endpoints' },
         { name: 'health', description: 'Health check endpoints' },

@@ -20,6 +20,7 @@ export const gatewayEnvSchema = envSchema.extend({
   NOTIFICATION_SERVICE_URL: z.string().url().default('http://localhost:3008'),
   ADMIN_SERVICE_URL: z.string().url().default('http://localhost:3009'),
   ANALYTICS_SERVICE_URL: z.string().url().default('http://localhost:3010'),
+  GITHUB_IMPORT_SERVICE_URL: z.string().url().default('http://localhost:3012'),
 
   // ─── Tiered Rate Limiting Configuration ──────────
   RATE_LIMIT_VERY_STRICT: z.coerce.number().int().positive().default(5),

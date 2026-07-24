@@ -36,6 +36,7 @@ type(scope): description
 **Scopes**: Service names (`auth`, `user`, `career`, etc.) or package names (`common`, `config`, etc.)
 
 **Examples**:
+
 ```
 feat(auth): add JWT token generation
 fix(user): resolve query timeout on large datasets

@@ -23,7 +23,10 @@ export class MfaService {
    * Begins the TOTP MFA setup flow by generating a secret and QR code URI.
    * Stores secret temporarily in Redis.
    */
-  async initiateTotpSetup(userId: string, email: string): Promise<{ secret: string; qrCodeUri: string }> {
+  async initiateTotpSetup(
+    userId: string,
+    email: string,
+  ): Promise<{ secret: string; qrCodeUri: string }> {
     const secret = Totp.generateSecret();
     const qrCodeUri = Totp.getQrCodeUri(secret, email);
 
@@ -37,7 +40,11 @@ export class MfaService {
    * Verifies the setup code. If correct, enables TOTP, generates and hashes 10 recovery codes,
    * saves them to the DB, and returns the plaintext codes to the user.
    */
-  async verifyAndEnableTotp(userId: string, code: string, ctx: { ipAddress: string | null; userAgent: string | null }): Promise<string[]> {
+  async verifyAndEnableTotp(
+    userId: string,
+    code: string,
+    ctx: { ipAddress: string | null; userAgent: string | null },
+  ): Promise<string[]> {
     const secret = await this.redisClient.get(`mfa:setup:totp:${userId}`);
     if (!secret) {
       throw ErrorFactory.badRequest('MFA setup session expired. Please initiate setup again.');
@@ -78,7 +85,10 @@ export class MfaService {
   /**
    * Enables Email MFA.
    */
-  async enableEmailMfa(userId: string, ctx: { ipAddress: string | null; userAgent: string | null }): Promise<string[]> {
+  async enableEmailMfa(
+    userId: string,
+    ctx: { ipAddress: string | null; userAgent: string | null },
+  ): Promise<string[]> {
     await this.mfaRepository.upsertSettings({
       userId,
       emailEnabled: true,
@@ -154,27 +164,23 @@ export class MfaService {
       if (isTotpValid) return true;
     }
 
-
-
     // 3. Try Recovery Code check
     const recoveryCodesList = await this.mfaRepository.findRecoveryCodesByUserId(userId);
     const codeHash = this.hashRecoveryCode(code);
 
-    const activeCode = recoveryCodesList.find(
-      (rc) => !rc.isUsed && rc.codeHash === codeHash,
-    );
+    const activeCode = recoveryCodesList.find((rc) => !rc.isUsed && rc.codeHash === codeHash);
 
     if (activeCode) {
       // Mark as used
       await this.mfaRepository.markRecoveryCodeUsed(activeCode.id);
-      
+
       // Audit
       await this.auditRepository.createSecurityEvent({
         userId,
         eventType: 'mfa.recovery_code.used',
         details: { codeId: activeCode.id },
       });
-      
+
       return true;
     }
 

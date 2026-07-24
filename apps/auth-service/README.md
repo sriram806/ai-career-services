@@ -179,27 +179,25 @@ All request parameters are validated at runtime against Zod schemas. Error envel
     "message": "Validation failed",
     "requestId": "4cfcb867-b50a-4a25-a13a-ff67f525d886",
     "timestamp": "2026-07-07T22:42:15.000Z",
-    "details": [
-      { "field": "email", "message": "Invalid email address format" }
-    ]
+    "details": [{ "field": "email", "message": "Invalid email address format" }]
   }
 }
 ```
 
 ### Endpoints List
 
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| **POST** | `/auth/register` | Register a new user account. Returns verification OTP in dev. | No |
-| **POST** | `/auth/login` | Authenticate credentials. Returns access token & HTTP-only cookie. | No |
-| **POST** | `/auth/logout` | Revokes the current session and clears the cookie. | No |
-| **POST** | `/auth/refresh` | Rotates access token and child refresh token. | No |
-| **POST** | `/auth/otp/request` | Dispatch a new OTP code (e.g. for registration, reset). | No |
-| **POST** | `/auth/otp/verify` | Verify email OTP code and activate account. | No |
-| **POST** | `/auth/forgot-password` | Initiates password reset flow by email. | No |
-| **POST** | `/auth/reset-password` | Resets password using verification code. Revokes all sessions. | No |
-| **GET** | `/auth/me` | Fetch active authenticated user profile details. | Yes (Bearer) |
-| **POST** | `/auth/change-password` | Update current user's password. Revokes other sessions. | Yes (Bearer) |
+| Method   | Endpoint                | Description                                                        | Auth Required |
+| :------- | :---------------------- | :----------------------------------------------------------------- | :------------ |
+| **POST** | `/auth/register`        | Register a new user account. Returns verification OTP in dev.      | No            |
+| **POST** | `/auth/login`           | Authenticate credentials. Returns access token & HTTP-only cookie. | No            |
+| **POST** | `/auth/logout`          | Revokes the current session and clears the cookie.                 | No            |
+| **POST** | `/auth/refresh`         | Rotates access token and child refresh token.                      | No            |
+| **POST** | `/auth/otp/request`     | Dispatch a new OTP code (e.g. for registration, reset).            | No            |
+| **POST** | `/auth/otp/verify`      | Verify email OTP code and activate account.                        | No            |
+| **POST** | `/auth/forgot-password` | Initiates password reset flow by email.                            | No            |
+| **POST** | `/auth/reset-password`  | Resets password using verification code. Revokes all sessions.     | No            |
+| **GET**  | `/auth/me`              | Fetch active authenticated user profile details.                   | Yes (Bearer)  |
+| **POST** | `/auth/change-password` | Update current user's password. Revokes other sessions.            | Yes (Bearer)  |
 
 ---
 

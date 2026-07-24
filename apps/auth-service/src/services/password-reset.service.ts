@@ -73,7 +73,7 @@ export class PasswordResetService {
     }
 
     // 2. Rate limiting — daily cap
-    const dailyCount = Number(await this.redisClient.get(dailyKey) ?? 0);
+    const dailyCount = Number((await this.redisClient.get(dailyKey)) ?? 0);
     if (dailyCount >= this.maxDailyRequests) {
       return null;
     }

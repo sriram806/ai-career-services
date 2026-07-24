@@ -19,8 +19,7 @@ export const requestLoggerPlugin: FastifyPluginCallback = (
   fastify.addHook('onRequest', async (request, reply) => {
     const requestId =
       (request.headers['x-request-id'] as string | undefined) ?? crypto.randomUUID();
-    const correlationId =
-      (request.headers['x-correlation-id'] as string | undefined) ?? requestId;
+    const correlationId = (request.headers['x-correlation-id'] as string | undefined) ?? requestId;
 
     // Set headers on the reply
     void reply.header('x-request-id', requestId);

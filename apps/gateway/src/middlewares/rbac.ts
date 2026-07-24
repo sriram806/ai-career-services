@@ -23,9 +23,7 @@ export function authorizeRoles(allowedRoles: string[]) {
 
     const userRoles = request.user.roles;
     const isAuthorized = userRoles.some((role) =>
-      allowedRoles.some(
-        (allowed) => allowed.toLowerCase() === role.toLowerCase(),
-      ),
+      allowedRoles.some((allowed) => allowed.toLowerCase() === role.toLowerCase()),
     );
 
     if (!isAuthorized) {

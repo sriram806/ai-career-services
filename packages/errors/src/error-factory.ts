@@ -21,7 +21,10 @@ export class ErrorFactory {
     return new AppError(ErrorCode.FORBIDDEN, message);
   }
 
-  static accountLocked(message = 'Account is temporarily locked', details?: ApiErrorDetail[]): AppError {
+  static accountLocked(
+    message = 'Account is temporarily locked',
+    details?: ApiErrorDetail[],
+  ): AppError {
     return new AppError(ErrorCode.ACCOUNT_LOCKED, message, { details });
   }
 
@@ -53,11 +56,9 @@ export class ErrorFactory {
   }
 
   static externalServiceError(service: string, cause?: Error): AppError {
-    return new AppError(
-      ErrorCode.EXTERNAL_SERVICE_ERROR,
-      `External service '${service}' failed`,
-      { cause },
-    );
+    return new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, `External service '${service}' failed`, {
+      cause,
+    });
   }
 
   static rateLimitExceeded(): AppError {

@@ -126,7 +126,8 @@ export class SessionService {
     else if (/Android/i.test(userAgent)) os = 'Android';
     else if (/iPhone|iPad|iPod/i.test(userAgent)) os = 'iOS';
 
-    if (/Chrome/i.test(userAgent) && !/Edge|Chrome\-Lighthouse/i.test(userAgent)) browser = 'Chrome';
+    if (/Chrome/i.test(userAgent) && !/Edge|Chrome\-Lighthouse/i.test(userAgent))
+      browser = 'Chrome';
     else if (/Safari/i.test(userAgent) && !/Chrome/i.test(userAgent)) browser = 'Safari';
     else if (/Firefox/i.test(userAgent)) browser = 'Firefox';
     else if (/Edg/i.test(userAgent)) browser = 'Edge';

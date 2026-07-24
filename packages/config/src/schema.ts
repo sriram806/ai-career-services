@@ -37,6 +37,10 @@ export const envSchema = z.object({
 
   // ─── CORS ─────────────────────────────────────────
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  AUTH_OAUTH_REDIRECT_URI: z
+    .string()
+    .url()
+    .default('http://localhost:4000/api/v1/auth/oauth/callback'),
 
   // ─── Rate Limiting ────────────────────────────────
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
@@ -49,6 +53,33 @@ export const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_SECURE: z.coerce.boolean().default(false),
   SMTP_FROM: z.string().default('AI Career OS <noreply@aicareer.os>'),
+
+  // ─── GitHub OAuth Ingestion ──────────────────────
+  GITHUB_CLIENT_ID: z.string().default('mock_github_client_id'),
+  GITHUB_CLIENT_SECRET: z.string().default('mock_github_client_secret'),
+  GITHUB_OAUTH_ENCRYPTION_KEY: z
+    .string()
+    .length(64)
+    .default('00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff'),
+
+  GOOGLE_CLIENT_ID: z.string().default('mock_google_client_id'),
+  GOOGLE_CLIENT_SECRET: z.string().default('mock_google_client_secret'),
+
+  // ─── LinkedIn OAuth ───────────────────────────────
+  LINKEDIN_CLIENT_ID: z.string().default('mock_linkedin_client_id'),
+  LINKEDIN_CLIENT_SECRET: z.string().default('mock_linkedin_client_secret'),
+  LINKEDIN_REDIRECT_URI: z
+    .string()
+    .url()
+    .default('http://localhost:4000/api/v1/profile/linkedin/oauth/callback'),
+  LINKEDIN_FRONTEND_REDIRECT: z.string().default('http://localhost:3000/profile/linkedin'),
+
+  // ─── S3 Compatible Storage ────────────────────────
+  S3_ENDPOINT: z.string().default('http://localhost:9000'),
+  S3_ACCESS_KEY: z.string().default('changeme_s3_access'),
+  S3_SECRET_KEY: z.string().default('changeme_s3_secret'),
+  S3_BUCKET: z.string().default('ai-career-os'),
+  S3_REGION: z.string().default('us-east-1'),
 });
 
 /** Inferred TypeScript type from Zod schema */

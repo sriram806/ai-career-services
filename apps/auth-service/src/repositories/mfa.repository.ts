@@ -91,10 +91,9 @@ export class MfaRepository {
   }
 
   async findRecoveryCodesByUserId(userId: string): Promise<DbRecoveryCode[]> {
-    return this.db
-      .select()
-      .from(recoveryCodes)
-      .where(eq(recoveryCodes.userId, userId)) as Promise<DbRecoveryCode[]>;
+    return this.db.select().from(recoveryCodes).where(eq(recoveryCodes.userId, userId)) as Promise<
+      DbRecoveryCode[]
+    >;
   }
 
   async markRecoveryCodeUsed(id: string): Promise<void> {
@@ -108,8 +107,6 @@ export class MfaRepository {
   }
 
   async deleteRecoveryCodes(userId: string): Promise<void> {
-    await this.db
-      .delete(recoveryCodes)
-      .where(eq(recoveryCodes.userId, userId));
+    await this.db.delete(recoveryCodes).where(eq(recoveryCodes.userId, userId));
   }
 }

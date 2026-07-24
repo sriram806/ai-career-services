@@ -24,9 +24,12 @@ export interface HealthCheckResponse {
   readonly version: string;
   readonly uptime: number;
   readonly timestamp: string;
-  readonly checks: Record<string, {
-    readonly status: ServiceStatus;
-    readonly responseTime?: number;
-    readonly message?: string;
-  }>;
+  readonly checks: Record<
+    string,
+    {
+      readonly status: ServiceStatus;
+      readonly responseTime?: number;
+      readonly message?: string;
+    }
+  >;
 }

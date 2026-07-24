@@ -1,151 +1,83 @@
-import * as crypto from 'node:crypto';
-import type { EmailVerificationRepository } from '../repositories/email-verification.repository';
 import type { UserRepository } from '../repositories/user.repository';
 import type { AuditRepository } from '../repositories/audit.repository';
-import type { Redis } from 'ioredis';
 import { ErrorFactory } from '@ai-career-os/errors';
-import type { EmailService } from './email.service';
+import type { OtpService } from './otp.service';
 
 /**
  * Email Verification Service.
  *
- * Implements dual verification: secure random token (link) AND OTP (code).
- * The token-based approach is the primary mechanism — a 48-byte cryptographically
- * random token is generated, SHA-256 hashed for storage, and the plaintext
- * is sent to the user via email.
- *
- * Security properties:
- *   - Tokens are 48 bytes (96 hex chars) — effectively unguessable (384 bits entropy)
- *   - Only SHA-256 hash stored in DB — database breach doesn't compromise tokens
- *   - Single-use: token is marked used immediately on successful verification
- *   - 24-hour expiry window
- *   - 5-minute resend cooldown to prevent email bombing
- *   - All previous tokens invalidated when a new one is issued
- *
- * Redis key schema:
- *   email:verify:cooldown:{userId} → resend cooldown lock (TTL: 5 min)
+ * Implements OTP code-based verification flow.
  */
 export class EmailVerificationService {
-  private readonly tokenExpiryHours = 24;
-  private readonly resendCooldownSeconds = 300; // 5 minutes
-
   constructor(
-    private readonly emailVerificationRepository: EmailVerificationRepository,
     private readonly userRepository: UserRepository,
     private readonly auditRepository: AuditRepository,
-    private readonly redisClient: Redis,
-    private readonly emailService: EmailService,
+    private readonly otpService: OtpService,
   ) {}
 
   /**
-   * Generates a secure email verification token.
-   * Returns the plaintext token to be sent via email.
-   *
-   * This method also invalidates any previously issued tokens for the user.
+   * Generates a secure email verification OTP.
+   * Returns the plaintext OTP to be sent via email.
    */
   async generateVerificationToken(userId: string): Promise<string> {
-    // Invalidate all existing tokens for this user
-    await this.emailVerificationRepository.invalidateAllForUser(userId);
-
-    // Generate cryptographically secure token
-    const plainToken = crypto.randomBytes(48).toString('hex');
-    const tokenHash = this.hashToken(plainToken);
-    const expiresAt = new Date(Date.now() + this.tokenExpiryHours * 60 * 60 * 1000);
-
-    await this.emailVerificationRepository.createToken({
-      userId,
-      tokenHash,
-      expiresAt,
-    });
-
-    // Send email verification asynchronously
-    const user = await this.userRepository.findById(userId);
-    if (user) {
-      this.emailService
-        .sendVerificationEmail(user.email, user.username, plainToken)
-        .catch((err) => {
-          // Log verification email failure
-          console.error(`Failed to send verification email to ${user.email}:`, err);
-        });
-    }
-
-    return plainToken;
+    const code = await this.otpService.generateOtp(userId, 'email_verification');
+    return code;
   }
 
   /**
-   * Verifies the email verification token and activates the user account.
+   * Verifies the email verification OTP code and activates the user account.
    *
    * Returns the userId on success for audit trail purposes.
-   * Throws on invalid, expired, or already-used tokens.
+   * Throws on invalid, expired, or already-used OTP codes.
    */
-  async verifyToken(
-    token: string,
+  async verifyOtp(
+    email: string,
+    code: string,
     context: { ipAddress: string | null; userAgent: string | null },
   ): Promise<string> {
-    const tokenHash = this.hashToken(token);
-
-    const tokenRecord = await this.emailVerificationRepository.findByTokenHash(tokenHash);
-    if (!tokenRecord) {
-      throw ErrorFactory.badRequest('Invalid or expired verification token');
+    const user = await this.userRepository.findByEmail(email.toLowerCase().trim());
+    if (!user) {
+      throw ErrorFactory.badRequest('Invalid verification code or email');
     }
 
-    // Check if already used (single-use enforcement)
-    if (tokenRecord.usedAt) {
-      throw ErrorFactory.badRequest('This verification token has already been used');
+    if (user.emailVerified) {
+      throw ErrorFactory.badRequest('Email is already verified');
     }
 
-    // Check expiry
-    if (tokenRecord.expiresAt.getTime() < Date.now()) {
-      throw ErrorFactory.badRequest('Verification token has expired. Please request a new one.');
+    // Verify OTP using otpService
+    const isValid = await this.otpService.verifyOtp(user.id, 'email_verification', code);
+    if (!isValid) {
+      throw ErrorFactory.badRequest('Invalid verification code');
     }
-
-    // Mark token as used
-    await this.emailVerificationRepository.markUsed(tokenRecord.id);
 
     // Activate the user account
-    await this.userRepository.updateUser(tokenRecord.userId, {
+    await this.userRepository.updateUser(user.id, {
       status: 'active',
       emailVerified: true,
     });
 
     // Audit log
     await this.auditRepository.createSecurityEvent({
-      userId: tokenRecord.userId,
+      userId: user.id,
       eventType: 'user.email.verified',
       ipAddress: context.ipAddress,
       userAgent: context.userAgent,
-      details: { method: 'token' },
+      details: { method: 'otp' },
     });
 
-    return tokenRecord.userId;
+    return user.id;
   }
 
   /**
-   * Resends verification email with cooldown enforcement.
-   *
-   * Rate limiting:
-   *   - 5-minute cooldown between resend requests
-   *   - Previous tokens are invalidated when a new one is issued
+   * Resends verification OTP with cooldown enforcement.
    */
   async resendVerification(
     userId: string,
     context: { ipAddress: string | null; userAgent: string | null },
   ): Promise<string> {
-    const cooldownKey = `email:verify:cooldown:${userId}`;
-
-    // Check cooldown
-    const onCooldown = await this.redisClient.exists(cooldownKey);
-    if (onCooldown) {
-      const ttl = await this.redisClient.ttl(cooldownKey);
-      throw ErrorFactory.badRequest(
-        `Please wait ${ttl > 0 ? ttl : this.resendCooldownSeconds} seconds before requesting another verification email`,
-      );
-    }
-
     // Verify user exists and is not already verified
     const user = await this.userRepository.findById(userId);
     if (!user) {
-      // Return generic error to prevent user enumeration
       throw ErrorFactory.badRequest('Unable to process verification request');
     }
 
@@ -153,11 +85,8 @@ export class EmailVerificationService {
       throw ErrorFactory.badRequest('Email is already verified');
     }
 
-    // Generate new token
-    const plainToken = await this.generateVerificationToken(userId);
-
-    // Set cooldown
-    await this.redisClient.set(cooldownKey, '1', 'EX', this.resendCooldownSeconds);
+    // Generate new OTP
+    const code = await this.generateVerificationToken(userId);
 
     // Audit log
     await this.auditRepository.createSecurityEvent({
@@ -165,13 +94,9 @@ export class EmailVerificationService {
       eventType: 'user.email.verification_resent',
       ipAddress: context.ipAddress,
       userAgent: context.userAgent,
-      details: {},
+      details: { method: 'otp' },
     });
 
-    return plainToken;
-  }
-
-  private hashToken(token: string): string {
-    return crypto.createHash('sha256').update(token).digest('hex');
+    return code;
   }
 }

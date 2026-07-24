@@ -60,8 +60,6 @@ export class EmailVerificationRepository {
   }
 
   async invalidateAllForUser(userId: string): Promise<void> {
-    await this.db
-      .delete(emailVerificationTokens)
-      .where(eq(emailVerificationTokens.userId, userId));
+    await this.db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
   }
 }

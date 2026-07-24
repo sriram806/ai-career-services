@@ -51,11 +51,7 @@ export class OtpRepository {
   }
 
   async incrementAttempts(id: string): Promise<void> {
-    const result = await this.db
-      .select()
-      .from(otpCodes)
-      .where(eq(otpCodes.id, id))
-      .limit(1);
+    const result = await this.db.select().from(otpCodes).where(eq(otpCodes.id, id)).limit(1);
 
     if (result[0]) {
       await this.db

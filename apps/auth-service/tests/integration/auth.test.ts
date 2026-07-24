@@ -7,6 +7,9 @@ process.env.NODE_ENV = 'testing';
 process.env.JWT_SECRET = 'test_jwt_secret_minimum_32_chars_long';
 process.env.POSTGRES_DB = 'test_db';
 process.env.REDIS_HOST = 'localhost';
+process.env.LINKEDIN_CLIENT_ID = 'test_linkedin_client_id';
+process.env.LINKEDIN_CLIENT_SECRET = 'test_linkedin_client_secret';
+process.env.AUTH_OAUTH_REDIRECT_URI = 'http://localhost:4000/api/v1/auth/oauth/callback';
 loadConfig();
 
 // Define mock databases and stores in module scope so they are accessible to hoisted vi.mock
@@ -91,7 +94,7 @@ function makeQueryBuilder(data: any[]) {
         return data[Number(prop)];
       }
       return undefined;
-    }
+    },
   });
 }
 
@@ -117,7 +120,12 @@ const dbClient = {
       values: vi.fn().mockImplementation((vals) => {
         const list = Array.isArray(vals) ? vals : [vals];
         const rows = list.map((val) => {
-          const row = { id: crypto.randomUUID(), createdAt: new Date(), updatedAt: new Date(), ...val };
+          const row = {
+            id: crypto.randomUUID(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            ...val,
+          };
           const tableName = getTableName(table);
           if (tableName === 'users') mockDbUsers.push(row);
           else if (tableName === 'credentials') mockDbCredentials.push(row);
@@ -214,8 +222,12 @@ describe('Auth Service Integration Tests', () => {
 
   it('should register a new user successfully and return email verification token in development', async () => {
     // 1. Stub find methods to return null (clean database)
-    const findEmailSpy = vi.spyOn((app as any).userRepository, 'findByEmail').mockResolvedValue(null);
-    const findUsernameSpy = vi.spyOn((app as any).userRepository, 'findByUsername').mockResolvedValue(null);
+    const findEmailSpy = vi
+      .spyOn((app as any).userRepository, 'findByEmail')
+      .mockResolvedValue(null);
+    const findUsernameSpy = vi
+      .spyOn((app as any).userRepository, 'findByUsername')
+      .mockResolvedValue(null);
 
     const response = await app.inject({
       method: 'POST',
@@ -392,6 +404,25 @@ describe('Auth Service Integration Tests', () => {
     expect(body.data.authorizationUrl).toContain('accounts.google.com');
   });
 
+  it('should initiate LinkedIn OAuth with configured client and auth callback', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/oauth/linkedin',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.success).toBe(true);
+
+    const authorizationUrl = new URL(body.data.authorizationUrl);
+    expect(authorizationUrl.origin).toBe('https://www.linkedin.com');
+    expect(authorizationUrl.searchParams.get('client_id')).toBe(process.env.LINKEDIN_CLIENT_ID);
+    expect(authorizationUrl.searchParams.get('client_id')).not.toBe('placeholder_client_id');
+    expect(authorizationUrl.searchParams.get('redirect_uri')).toBe(
+      process.env.AUTH_OAUTH_REDIRECT_URI || 'http://localhost:4000/api/v1/auth/oauth/callback',
+    );
+  });
+
   it('should process OAuth callback and redirect to success landing', async () => {
     const state = 'test_oauth_state';
     mockRedisStore[`oauth:flow:${state}`] = JSON.stringify({
@@ -399,6 +430,15 @@ describe('Auth Service Integration Tests', () => {
       nonce: 'nonce123',
       codeVerifier: 'verifier123',
       redirectUri: 'http://localhost:3000/auth/oauth/callback',
+    });
+
+    mockDbUsers.push({
+      id: 'existing-oauth-user-id',
+      email: 'google-user-12345@example.com',
+      username: 'google_user_12345',
+      status: 'active',
+      emailVerified: true,
+      role: 'candidate',
     });
 
     const response = await app.inject({
@@ -438,7 +478,10 @@ describe('Auth Service Integration Tests', () => {
     const body1 = JSON.parse(initiateRes.body);
     expect(body1.data.secret).toBeDefined();
 
-    vi.spyOn((app as any).mfaService, 'verifyAndEnableTotp').mockResolvedValue(['CODE-1', 'CODE-2']);
+    vi.spyOn((app as any).mfaService, 'verifyAndEnableTotp').mockResolvedValue([
+      'CODE-1',
+      'CODE-2',
+    ]);
 
     const verifyRes = await app.inject({
       method: 'POST',

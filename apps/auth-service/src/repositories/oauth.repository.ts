@@ -48,31 +48,22 @@ export class OAuthRepository {
       .select()
       .from(oauthAccounts)
       .where(
-        and(
-          eq(oauthAccounts.provider, provider),
-          eq(oauthAccounts.providerUserId, providerUserId),
-        ),
+        and(eq(oauthAccounts.provider, provider), eq(oauthAccounts.providerUserId, providerUserId)),
       )
       .limit(1);
     return (result[0] as DbOAuthAccount) || null;
   }
 
   async findOAuthAccountsByUserId(userId: string): Promise<DbOAuthAccount[]> {
-    return this.db
-      .select()
-      .from(oauthAccounts)
-      .where(eq(oauthAccounts.userId, userId)) as Promise<DbOAuthAccount[]>;
+    return this.db.select().from(oauthAccounts).where(eq(oauthAccounts.userId, userId)) as Promise<
+      DbOAuthAccount[]
+    >;
   }
 
   async deleteOAuthAccount(userId: string, provider: string): Promise<void> {
     await this.db
       .delete(oauthAccounts)
-      .where(
-        and(
-          eq(oauthAccounts.userId, userId),
-          eq(oauthAccounts.provider, provider),
-        ),
-      );
+      .where(and(eq(oauthAccounts.userId, userId), eq(oauthAccounts.provider, provider)));
   }
 
   async createConnectedAccount(data: {
@@ -103,11 +94,6 @@ export class OAuthRepository {
   async deleteConnectedAccount(userId: string, provider: string): Promise<void> {
     await this.db
       .delete(connectedAccounts)
-      .where(
-        and(
-          eq(connectedAccounts.userId, userId),
-          eq(connectedAccounts.provider, provider),
-        ),
-      );
+      .where(and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, provider)));
   }
 }

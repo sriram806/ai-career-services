@@ -20,11 +20,11 @@ describe('Validation and Security Middleware', () => {
     it('should detect NoSQL injection operators in object keys', () => {
       expect(hasInjectionSignature({ username: { $ne: null } })).toBe(true);
       expect(hasInjectionSignature({ email: { $gt: '' } })).toBe(true);
-      expect(hasInjectionSignature({ '$regex': '.*' })).toBe(true);
+      expect(hasInjectionSignature({ $regex: '.*' })).toBe(true);
     });
 
     it('should detect injection recursively in nested arrays/objects', () => {
-      expect(hasInjectionSignature([{ name: 'safe' }, { query: "UNION SELECT 1" }])).toBe(true);
+      expect(hasInjectionSignature([{ name: 'safe' }, { query: 'UNION SELECT 1' }])).toBe(true);
       expect(
         hasInjectionSignature({
           filters: {
