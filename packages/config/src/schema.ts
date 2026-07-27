@@ -53,7 +53,9 @@ export const envSchema = z.object({
   SMTP_PORT: z.coerce.number().int().positive().default(1025),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_SECURE: z
+    .preprocess((val) => (typeof val === 'string' ? val.toLowerCase() === 'true' : Boolean(val)), z.boolean())
+    .default(false),
   SMTP_FROM: z.string().default('AI Career OS <noreply@aicareer.os>'),
 
   // ─── GitHub OAuth Ingestion ──────────────────────

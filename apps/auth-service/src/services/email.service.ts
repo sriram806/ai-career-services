@@ -45,7 +45,8 @@ export class EmailService {
     this.frontendUrl = rawUrl.trim();
 
     const portNum = Number(config.port) || 587;
-    const isSecure = portNum === 465 || String(config.secure) === 'true';
+    // Strict RFC compliance: Port 465 = Implicit TLS (secure: true). Port 587 = STARTTLS (secure: false).
+    const isSecure = portNum === 465;
 
     const transportConfig: any = {
       host: config.host,
