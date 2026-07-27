@@ -1,3 +1,4 @@
+import * as dns from 'node:dns';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -43,16 +44,24 @@ export class EmailService {
     const rawUrl = (config.frontendUrl || 'http://localhost:3000').split(',')[0] || 'http://localhost:3000';
     this.frontendUrl = rawUrl.trim();
 
+    const portNum = Number(config.port) || 587;
+    const isSecure = portNum === 465 || String(config.secure) === 'true';
+
     const transportConfig: any = {
       host: config.host,
-      port: config.port,
-      secure: config.secure,
-      family: 4, // Force IPv4 to bypass unreachable IPv6 routes on Render/cloud hosts
-      connectionTimeout: 10000,
-      socketTimeout: 10000,
-      greetingTimeout: 10000,
+      port: portNum,
+      secure: isSecure,
+      requireTLS: !isSecure,
+      connectionTimeout: 15000,
+      socketTimeout: 15000,
+      greetingTimeout: 15000,
+      dnsTimeout: 10000,
       tls: {
         rejectUnauthorized: false,
+        minVersion: 'TLSv1.2',
+      },
+      lookup: (hostname: string, _options: any, callback: any) => {
+        dns.lookup(hostname, { family: 4 }, callback);
       },
     };
 
@@ -68,9 +77,9 @@ export class EmailService {
     // Verify SMTP connection on startup asynchronously
     this.transporter.verify((err) => {
       if (err) {
-        this.logger.error({ err }, 'SMTP connection verification failed. Email delivery may fail if credentials or host are invalid.');
+        this.logger.error({ err, host: config.host, port: portNum, secure: isSecure }, 'SMTP connection verification failed. Email delivery will retry on send.');
       } else {
-        this.logger.info('SMTP connection verified successfully');
+        this.logger.info({ host: config.host, port: portNum }, 'SMTP connection verified successfully');
       }
     });
   }
