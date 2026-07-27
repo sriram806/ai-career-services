@@ -173,14 +173,12 @@ export class AuthService {
       details: { email, username, role: data.role },
     });
 
-    // Dispatch OTP verification email upon registration
+    // Dispatch OTP verification email asynchronously (non-blocking for fast registration response)
     if (this.otpService) {
-      try {
-        await this.otpService.generateOtp(user.id, 'email_verification');
-      } catch (err) {
+      void this.otpService.generateOtp(user.id, 'email_verification').catch((err) => {
         // eslint-disable-next-line no-console
         console.error(`Failed to dispatch registration OTP email to ${user.email}:`, err);
-      }
+      });
     }
 
     return { user };
