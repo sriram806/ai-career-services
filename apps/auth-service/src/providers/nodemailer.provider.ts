@@ -3,6 +3,7 @@ import * as dns from 'node:dns';
 import * as nodemailer from 'nodemailer';
 
 import type { IEmailProvider, SendEmailPayload, SendEmailResult } from './email.provider.interface';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import type { Logger } from 'pino';
 
 export class NodemailerProvider implements IEmailProvider {
@@ -24,46 +25,71 @@ export class NodemailerProvider implements IEmailProvider {
     const portNum = Number(config.port) || 587;
     const isSecure = portNum === 465 || String(config.secure) === 'true';
 
-    const transportConfig: any = {
-      host: config.host || 'smtp-relay.brevo.com',
-      port: portNum,
-      secure: isSecure,
-      requireTLS: !isSecure,
-      connectionTimeout: 15000,
-      socketTimeout: 15000,
-      greetingTimeout: 15000,
-      dnsTimeout: 10000,
-      tls: {
-        rejectUnauthorized: false,
-        minVersion: 'TLSv1.2',
-      },
-      lookup: (hostname: string, _options: any, callback: any) => {
-        dns.lookup(hostname, { family: 4 }, callback);
-      },
-    };
+    const isGmail = (config.host || '').toLowerCase().includes('smtp.gmail.com');
 
-    if (config.user && config.pass) {
-      transportConfig.auth = {
-        user: config.user,
-        pass: config.pass,
+    let transportOptions: SMTPTransport.Options;
+
+    if (isGmail) {
+      // Use nodemailer's Gmail service preset — handles TLS, ports, and auth correctly
+      transportOptions = {
+        service: 'gmail',
+        auth: {
+          user: config.user,
+          pass: config.pass, // Must be a Google App Password, not your regular Gmail password
+        },
+        connectionTimeout: 15000,
+        socketTimeout: 15000,
+        greetingTimeout: 15000,
       };
+    } else {
+      transportOptions = {
+        host: config.host,
+        port: portNum,
+        secure: isSecure,
+        requireTLS: !isSecure,
+        connectionTimeout: 15000,
+        socketTimeout: 15000,
+        greetingTimeout: 15000,
+        dnsTimeout: 10000,
+        tls: {
+          rejectUnauthorized: false,
+          minVersion: 'TLSv1.2',
+        },
+        lookup: (
+          hostname: string,
+          _options: dns.LookupOneOptions,
+          callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
+        ) => {
+          dns.lookup(hostname, { family: 4 }, callback);
+        },
+      };
+
+      if (config.user && config.pass) {
+        transportOptions.auth = {
+          user: config.user,
+          pass: config.pass,
+        };
+      }
     }
 
-    this.transporter = nodemailer.createTransport(transportConfig);
+    this.transporter = nodemailer.createTransport(transportOptions);
 
     // Verify SMTP connection on startup
     this.transporter.verify((err) => {
       if (err) {
         // eslint-disable-next-line no-console
-        console.error('CRITICAL: Brevo SMTP Connection Verification Failed:', err);
+        console.error('CRITICAL: Gmail SMTP Connection Verification Failed:', err);
         this.logger.error(
           { err, host: config.host, port: portNum },
-          'Brevo SMTP connection verification failed',
+          'Gmail SMTP connection verification failed',
         );
       } else {
         // eslint-disable-next-line no-console
-        console.log(`SUCCESS: Brevo SMTP connection verified successfully to ${config.host}:${portNum}`);
-        this.logger.info({ host: config.host, port: portNum }, 'Brevo SMTP connection verified successfully');
+        console.log(`SUCCESS: Gmail SMTP connection verified successfully`);
+        this.logger.info(
+          { host: config.host, port: portNum },
+          'Gmail SMTP connection verified successfully',
+        );
       }
     });
   }
@@ -77,30 +103,35 @@ export class NodemailerProvider implements IEmailProvider {
         contentType: att.contentType,
       }));
 
-      const info = await this.transporter.sendMail({
+      const info = (await this.transporter.sendMail({
         from: payload.from,
         to: payload.to,
         subject: payload.subject,
         html: payload.html,
         attachments,
-      });
+      })) as { messageId?: string };
 
-      const messageId = info.messageId || 'unknown';
+      const messageId = info.messageId ?? 'unknown';
       this.logger.info(
-        { messageId, recipient: payload.to, subject: payload.subject, latencyMs: Date.now() - startTime },
-        'Email delivered successfully via Brevo SMTP (Nodemailer)',
+        {
+          messageId,
+          recipient: payload.to,
+          subject: payload.subject,
+          latencyMs: Date.now() - startTime,
+        },
+        'Email delivered successfully via Gmail SMTP (Nodemailer)',
       );
 
       return {
         id: messageId,
-        provider: 'brevo-smtp',
+        provider: 'gmail-smtp',
       };
-    } catch (err) {
+    } catch (err: unknown) {
       // eslint-disable-next-line no-console
-      console.error(`CRITICAL: Failed to deliver email to ${payload.to} via Brevo SMTP:`, err);
+      console.error(`CRITICAL: Failed to deliver email to ${payload.to} via Gmail SMTP:`, err);
       this.logger.error(
-        { err, recipient: payload.to, latencyMs: Date.now() - startTime },
-        'Failed to deliver email via Brevo SMTP',
+        { err: err as Error, recipient: payload.to, latencyMs: Date.now() - startTime },
+        'Failed to deliver email via Gmail SMTP',
       );
       throw err;
     }
