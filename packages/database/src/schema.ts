@@ -27,6 +27,7 @@ export const users = pgTable(
     phoneVerified: boolean('phone_verified').notNull().default(false),
     termsAcceptedAt: timestamp('terms_accepted_at', { withTimezone: true }),
     role: varchar('role', { length: 50 }).notNull().default('candidate'),
+    position: varchar('position', { length: 100 }).default('Candidate'),
     failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
     lockUntil: timestamp('lock_until', { withTimezone: true }),
     lastFailedLogin: timestamp('last_failed_login', { withTimezone: true }),

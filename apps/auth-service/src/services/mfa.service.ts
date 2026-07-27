@@ -1,10 +1,13 @@
 import * as crypto from 'node:crypto';
-import type { MfaRepository, DbMfaSettings } from '../repositories/mfa.repository';
-import type { AuditRepository } from '../repositories/audit.repository';
 
-import type { Redis } from 'ioredis';
-import { Totp } from '../utils/totp';
 import { ErrorFactory } from '@ai-career-os/errors';
+
+import { Totp } from '../utils/totp';
+
+import type { AuditRepository } from '../repositories/audit.repository';
+import type { MfaRepository, DbMfaSettings } from '../repositories/mfa.repository';
+import type { OtpService } from './otp.service';
+import type { Redis } from 'ioredis';
 
 export class MfaService {
   private readonly SETUP_TTL = 300; // 5 minutes
@@ -13,6 +16,7 @@ export class MfaService {
     private readonly mfaRepository: MfaRepository,
     private readonly auditRepository: AuditRepository,
     private readonly redisClient: Redis,
+    private readonly otpService?: OtpService,
   ) {}
 
   async getSettings(userId: string): Promise<DbMfaSettings | null> {
@@ -156,12 +160,36 @@ export class MfaService {
    */
   async verifyMfaToken(userId: string, code: string): Promise<boolean> {
     const settings = await this.mfaRepository.findByUserId(userId);
-    if (!settings) return false;
+    if (!settings) {
+      return false;
+    }
 
     // 1. Try TOTP if enabled
     if (settings.totpEnabled && settings.totpSecret) {
       const isTotpValid = Totp.verifyToken(settings.totpSecret, code);
-      if (isTotpValid) return true;
+      if (isTotpValid) {
+        return true;
+      }
+    }
+
+    // 2. Try Email OTP if OtpService is provided
+    if (this.otpService) {
+      try {
+        const isEmailOtpValid = await this.otpService.verifyOtp(userId, 'mfa_disable', code);
+        if (isEmailOtpValid) {
+          return true;
+        }
+      } catch {
+        // Continue to check recovery codes if Email OTP check throws or fails
+      }
+      try {
+        const isMfaAuthOtpValid = await this.otpService.verifyOtp(userId, 'mfa_auth', code);
+        if (isMfaAuthOtpValid) {
+          return true;
+        }
+      } catch {
+        // Continue
+      }
     }
 
     // 3. Try Recovery Code check

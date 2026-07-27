@@ -1,9 +1,10 @@
 import * as crypto from 'node:crypto';
+
+import type { AuditRepository } from '../repositories/audit.repository';
 import type {
   TrustedDeviceRepository,
   DbTrustedDevice,
 } from '../repositories/trusted-device.repository';
-import type { AuditRepository } from '../repositories/audit.repository';
 
 export interface DeviceInfo {
   deviceName: string;
@@ -165,17 +166,27 @@ export class TrustedDeviceService {
     let browser = 'Unknown Browser';
     let deviceName = 'Desktop';
 
-    if (/Windows/i.test(userAgent)) os = 'Windows';
-    else if (/Macintosh|Mac OS X/i.test(userAgent)) os = 'macOS';
-    else if (/Linux/i.test(userAgent)) os = 'Linux';
-    else if (/Android/i.test(userAgent)) os = 'Android';
-    else if (/iPhone|iPad|iPod/i.test(userAgent)) os = 'iOS';
+    if (/Windows/i.test(userAgent)) {
+      os = 'Windows';
+    } else if (/Macintosh|Mac OS X/i.test(userAgent)) {
+      os = 'macOS';
+    } else if (/Linux/i.test(userAgent)) {
+      os = 'Linux';
+    } else if (/Android/i.test(userAgent)) {
+      os = 'Android';
+    } else if (/iPhone|iPad|iPod/i.test(userAgent)) {
+      os = 'iOS';
+    }
 
-    if (/Chrome/i.test(userAgent) && !/Edge|Chrome\-Lighthouse/i.test(userAgent))
+    if (/Chrome/i.test(userAgent) && !/Edge|Chrome-Lighthouse/i.test(userAgent)) {
       browser = 'Chrome';
-    else if (/Safari/i.test(userAgent) && !/Chrome/i.test(userAgent)) browser = 'Safari';
-    else if (/Firefox/i.test(userAgent)) browser = 'Firefox';
-    else if (/Edg/i.test(userAgent)) browser = 'Edge';
+    } else if (/Safari/i.test(userAgent) && !/Chrome/i.test(userAgent)) {
+      browser = 'Safari';
+    } else if (/Firefox/i.test(userAgent)) {
+      browser = 'Firefox';
+    } else if (/Edg/i.test(userAgent)) {
+      browser = 'Edge';
+    }
 
     if (/Mobile|Android|iPhone|iPod/i.test(userAgent)) {
       deviceName = /iPad/i.test(userAgent) ? 'Tablet' : 'Mobile';

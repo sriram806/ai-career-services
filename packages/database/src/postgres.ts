@@ -4,10 +4,6 @@ import { Pool } from 'pg';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Logger } from 'pino';
 
-/**
- * PostgreSQL connection manager using pg Pool + Drizzle ORM.
- * Manages connection lifecycle and provides a Drizzle instance.
- */
 export class PostgresConnection {
   private pool: Pool | null = null;
   private db: NodePgDatabase | null = null;
@@ -27,9 +23,6 @@ export class PostgresConnection {
     this.logger = logger.child({ component: 'PostgresConnection' });
   }
 
-  /**
-   * Establish connection pool and initialize Drizzle ORM.
-   */
   async connect(): Promise<NodePgDatabase> {
     if (this.db) {
       return this.db;
@@ -57,9 +50,6 @@ export class PostgresConnection {
     return this.db;
   }
 
-  /**
-   * Get the Drizzle database instance.
-   */
   getDb(): NodePgDatabase {
     if (!this.db) {
       throw new Error('PostgreSQL not connected. Call connect() first.');
@@ -67,9 +57,6 @@ export class PostgresConnection {
     return this.db;
   }
 
-  /**
-   * Health check — verify connection is alive.
-   */
   async healthCheck(): Promise<boolean> {
     try {
       if (!this.pool) {
@@ -84,9 +71,6 @@ export class PostgresConnection {
     }
   }
 
-  /**
-   * Gracefully close all connections.
-   */
   async disconnect(): Promise<void> {
     if (this.pool) {
       await this.pool.end();

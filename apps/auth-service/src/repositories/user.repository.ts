@@ -1,5 +1,6 @@
-import { eq, and, isNull } from 'drizzle-orm';
 import { users, credentials } from '@ai-career-os/database';
+import { eq, and, isNull } from 'drizzle-orm';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 export interface DbUser {
@@ -15,6 +16,7 @@ export interface DbUser {
   phoneVerified: boolean;
   termsAcceptedAt: Date | null;
   role: string;
+  position: string | null;
   failedLoginAttempts: number;
   lockUntil: Date | null;
   lastFailedLogin: Date | null;
@@ -91,6 +93,7 @@ export class UserRepository {
     country?: string;
     termsAccepted?: boolean;
     role: string;
+    position?: string;
   }): Promise<DbUser> {
     const result = await this.db
       .insert(users)
@@ -103,6 +106,7 @@ export class UserRepository {
         country: data.country || null,
         termsAcceptedAt: data.termsAccepted ? new Date() : null,
         role: data.role,
+        position: data.position || null,
         status: 'pending_verification',
       })
       .returning();
@@ -122,7 +126,28 @@ export class UserRepository {
   }
 
   async softDeleteUser(id: string): Promise<void> {
-    await this.db.update(users).set({ deletedAt: new Date() }).where(eq(users.id, id));
+    await this.db.update(users).set({ deletedAt: new Date(), status: 'pending_deletion' }).where(eq(users.id, id));
+  }
+
+  async restoreUser(id: string): Promise<void> {
+    await this.db
+      .update(users)
+      .set({ deletedAt: null, status: 'active', updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async hardDeleteUser(id: string): Promise<void> {
+    await this.db.delete(credentials).where(eq(credentials.userId, id));
+    await this.db.delete(users).where(eq(users.id, id));
+  }
+
+  async findByEmailIncludingDeleted(email: string): Promise<DbUser | null> {
+    const result = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.email, email.toLowerCase().trim()))
+      .limit(1);
+    return (result[0] as DbUser) || null;
   }
 
   // ─── Credential Methods ─────────────────────────────
@@ -192,7 +217,9 @@ export class UserRepository {
    */
   async clearFailedAttempts(userId: string): Promise<void> {
     const user = await this.findById(userId);
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
     // Only reset status if it was 'locked' — don't override 'suspended' or other states
     const newStatus = user.status === 'locked' ? 'active' : user.status;

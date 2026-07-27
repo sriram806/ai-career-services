@@ -238,6 +238,8 @@ describe('Auth Service Integration Tests', () => {
         password: 'Password123!',
         confirmPassword: 'Password123!',
         role: 'candidate',
+        fullName: 'Test Integrator',
+        termsAccepted: true,
       },
     });
 
@@ -245,7 +247,7 @@ describe('Auth Service Integration Tests', () => {
     const body = JSON.parse(response.body);
     expect(body.success).toBe(true);
     expect(body.data.message).toContain('Registration successful');
-    expect(body.data.verificationToken).toBeDefined();
+    expect(body.data.verificationOtp).toBeDefined();
 
     findEmailSpy.mockRestore();
     findUsernameSpy.mockRestore();

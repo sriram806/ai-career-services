@@ -1,12 +1,12 @@
-/**
- * Platform-wide constants.
- * Centralized to avoid magic numbers and strings across services.
- */
+import { loadConfig } from '@ai-career-os/config'
+
+const config = loadConfig()
+
 export const CONSTANTS = {
   /** API versioning */
   API: {
-    VERSION: 'v1',
-    PREFIX: '/api/v1',
+    VERSION: config.API_VERSION,
+    PREFIX: `/api/${config.API_VERSION}`,
     HEALTH_PATH: '/health',
     DOCS_PATH: '/docs',
   },

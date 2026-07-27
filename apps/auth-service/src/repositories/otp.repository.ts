@@ -1,5 +1,6 @@
-import { eq, and, desc } from 'drizzle-orm';
 import { otpCodes } from '@ai-career-os/database';
+import { eq, and, desc } from 'drizzle-orm';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 export interface DbOtpCode {

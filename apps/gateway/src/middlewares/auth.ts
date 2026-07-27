@@ -24,20 +24,26 @@ const PUBLIC_PREFIXES = [
 const PUBLIC_EXACT_ROUTES = [
   '/api/v1/auth/register',
   '/api/v1/auth/login',
+  '/api/v1/auth/logout',
+  '/api/v1/auth/logout-all',
   '/api/v1/auth/refresh',
   '/api/v1/auth/mfa/verify',
   '/api/v1/auth/forgot-password',
   '/api/v1/auth/reset-password',
   '/api/v1/auth/verify-email',
   '/api/v1/auth/resend-verification',
+  '/api/v1/auth/restore-account',
   '/auth/register',
   '/auth/login',
+  '/auth/logout',
+  '/auth/logout-all',
   '/auth/refresh',
   '/auth/mfa/verify',
   '/auth/forgot-password',
   '/auth/reset-password',
   '/auth/verify-email',
   '/auth/resend-verification',
+  '/auth/restore-account',
 ];
 
 /**

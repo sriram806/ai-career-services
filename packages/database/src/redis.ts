@@ -2,10 +2,6 @@ import Redis from 'ioredis';
 
 import type { Logger } from 'pino';
 
-/**
- * Redis connection manager using ioredis.
- * Provides connection lifecycle, health checks, and graceful shutdown.
- */
 export class RedisConnection {
   private client: Redis | null = null;
   private readonly logger: Logger;
@@ -23,9 +19,6 @@ export class RedisConnection {
     this.logger = logger.child({ component: 'RedisConnection' });
   }
 
-  /**
-   * Establish Redis connection.
-   */
   async connect(): Promise<Redis> {
     if (this.client) {
       return this.client;
@@ -66,9 +59,6 @@ export class RedisConnection {
     return this.client;
   }
 
-  /**
-   * Get the Redis client instance.
-   */
   getClient(): Redis {
     if (!this.client) {
       throw new Error('Redis not connected. Call connect() first.');
@@ -76,9 +66,6 @@ export class RedisConnection {
     return this.client;
   }
 
-  /**
-   * Health check — PING/PONG.
-   */
   async healthCheck(): Promise<boolean> {
     try {
       if (!this.client) {
@@ -91,9 +78,6 @@ export class RedisConnection {
     }
   }
 
-  /**
-   * Gracefully close the connection.
-   */
   async disconnect(): Promise<void> {
     if (this.client) {
       await this.client.quit();

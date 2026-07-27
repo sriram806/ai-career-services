@@ -1,5 +1,6 @@
-import { eq, or } from 'drizzle-orm';
 import { refreshTokens } from '@ai-career-os/database';
+import { eq, or } from 'drizzle-orm';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 export interface DbRefreshToken {

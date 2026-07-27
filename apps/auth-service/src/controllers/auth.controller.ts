@@ -1,45 +1,29 @@
-import type { FastifyRequest, FastifyReply } from 'fastify';
 import { createSuccessResponse } from '@ai-career-os/common';
-import type { AuthService } from '../services/auth.service';
-import type { EmailVerificationService } from '../services/email-verification.service';
-import type { PasswordResetService } from '../services/password-reset.service';
-import type { SessionService } from '../services/session.service';
-import type { TrustedDeviceService } from '../services/trusted-device.service';
-import type { MfaService } from '../services/mfa.service';
-import type { RbacService } from '../services/rbac.service';
-import type { OAuthService } from '../services/oauth.service';
+import { getConfig } from '@ai-career-os/config';
+import { ErrorFactory } from '@ai-career-os/errors';
+import { validate } from '@ai-career-os/validation';
+
+import {
+  registerSchema, loginSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema,
+  verifyEmailSchema, resendVerificationSchema, mfaEnableSchema, mfaVerifySchema, mfaDisableSchema,
+  oauthInitiateSchema, oauthUnlinkSchema,
+} from '../validators/auth.validator';
+
 import type { AuditRepository } from '../repositories/audit.repository';
 import type { SessionRepository } from '../repositories/session.repository';
 import type { UserRepository } from '../repositories/user.repository';
-import { validate } from '@ai-career-os/validation';
-import {
-  registerSchema,
-  loginSchema,
-  changePasswordSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  verifyEmailSchema,
-  resendVerificationSchema,
-  mfaEnableSchema,
-  mfaVerifySchema,
-  mfaDisableSchema,
-  oauthInitiateSchema,
-  oauthUnlinkSchema,
-} from '../validators/auth.validator';
-import { ErrorFactory } from '@ai-career-os/errors';
-import { getConfig } from '@ai-career-os/config';
+import type { AuthService } from '../services/auth.service';
+import type { EmailVerificationService } from '../services/email-verification.service';
+import type { MfaService } from '../services/mfa.service';
+import type { OAuthService } from '../services/oauth.service';
+import type { PasswordResetService } from '../services/password-reset.service';
+import type { DataExportService } from '../services/data-export.service';
+import type { OtpService } from '../services/otp.service';
+import type { SessionService } from '../services/session.service';
+import type { TrustedDeviceService } from '../services/trusted-device.service';
+import type { RbacService } from '../services/rbac.service';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 
-/**
- * HTTP controller for all authentication endpoints.
- *
- * Responsibilities:
- *   - Request validation (delegates to Zod schemas)
- *   - HTTP context extraction (IP, User-Agent, cookies)
- *   - Response formatting (delegates to createSuccessResponse)
- *   - Cookie management (refresh token in HTTP-only secure cookie)
- *
- * All business logic lives in the service layer — the controller is a thin adapter.
- */
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
@@ -48,13 +32,15 @@ export class AuthController {
     private readonly sessionService: SessionService,
     private readonly trustedDeviceService: TrustedDeviceService,
     private readonly mfaService: MfaService,
+    private readonly dataExportService: DataExportService,
+    private readonly otpService: OtpService,
 
     private readonly rbacService: RbacService,
     private readonly oauthService: OAuthService,
     private readonly auditRepository: AuditRepository,
     private readonly sessionRepository: SessionRepository,
     private readonly userRepository: UserRepository,
-  ) {}
+  ) { }
 
   // ─── Helper: extract request context ─────────────
   private getContext(request: FastifyRequest) {
@@ -83,14 +69,14 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      path: '/auth',
+      path: '/',
       ...(rememberMe && { maxAge: 30 * 24 * 60 * 60 }), // 30 days if rememberMe, otherwise session cookie
     });
   }
 
   // ─── Helper: clear refresh token cookie ──────────
   private clearRefreshTokenCookie(reply: FastifyReply): void {
-    reply.clearCookie('refreshToken', { path: '/auth' });
+    reply.clearCookie('refreshToken', { path: '/' });
   }
 
   // ─── Helper: extract refresh token from cookie or body ─
@@ -98,10 +84,7 @@ export class AuthController {
     return request.cookies['refreshToken'] || (request.body as any)?.refreshToken || null;
   }
 
-  // ═══════════════════════════════════════════════════
-  // ─── POST /auth/register ──────────────────────────
-  // ═══════════════════════════════════════════════════
-
+  // POST  -> /auth/register 
   async register(request: FastifyRequest, reply: FastifyReply) {
     const data = validate(registerSchema, request.body);
     const ctx = this.getContext(request);
@@ -119,8 +102,8 @@ export class AuthController {
       ...ctx,
     });
 
-    // Generate email verification token
-    const token = await this.emailVerificationService.generateVerificationToken(user.id);
+    // Generate email verification OTP code
+    const otp = await this.emailVerificationService.generateVerificationToken(user.id);
 
     return reply.status(201).send(
       createSuccessResponse(
@@ -128,8 +111,7 @@ export class AuthController {
           message: 'Registration successful. Please verify your email address.',
           userId: user.id,
           email: user.email,
-          // Return verification token in non-production for testing
-          verificationToken: process.env.NODE_ENV !== 'production' ? token : undefined,
+          verificationOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
         },
         request.id,
       ),
@@ -138,7 +120,7 @@ export class AuthController {
 
   // ═══════════════════════════════════════════════════
   // ─── POST /auth/login ─────────────────────────────
-  // ═══════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════
 
   async login(request: FastifyRequest, reply: FastifyReply) {
     const data = validate(loginSchema, request.body);
@@ -169,6 +151,7 @@ export class AuthController {
       createSuccessResponse(
         {
           accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
           user: result.user,
         },
         request.id,
@@ -230,12 +213,9 @@ export class AuthController {
 
     return reply
       .status(200)
-      .send(createSuccessResponse({ accessToken: result.accessToken }, request.id));
+      .send(createSuccessResponse({ accessToken: result.accessToken, refreshToken: result.refreshToken }, request.id));
   }
-
-  // ═══════════════════════════════════════════════════
-  // ─── POST /auth/forgot-password ───────────────────
-  // ═══════════════════════════════════════════════════
+  // POST -> /auth/forgot-password
 
   async forgotPassword(request: FastifyRequest, reply: FastifyReply) {
     const data = validate(forgotPasswordSchema, request.body);
@@ -255,9 +235,7 @@ export class AuthController {
     );
   }
 
-  // ═══════════════════════════════════════════════════
-  // ─── POST /auth/reset-password ────────────────────
-  // ═══════════════════════════════════════════════════
+  // POST -> /auth/reset-password
 
   async resetPassword(request: FastifyRequest, reply: FastifyReply) {
     const data = validate(resetPasswordSchema, request.body);
@@ -265,16 +243,14 @@ export class AuthController {
 
     await this.passwordResetService.resetPassword(data.token, data.passwordNew, ctx);
 
-    return reply
-      .status(200)
-      .send(
-        createSuccessResponse(
-          {
-            message: 'Password has been reset successfully. All active sessions have been revoked.',
-          },
-          request.id,
-        ),
-      );
+    return reply.status(200).send(
+      createSuccessResponse(
+        {
+          message: 'Password has been reset successfully. All active sessions have been revoked.',
+        },
+        request.id,
+      ),
+    );
   }
 
   // ═══════════════════════════════════════════════════
@@ -388,10 +364,7 @@ export class AuthController {
         throw ErrorFactory.badRequest('Email is already verified');
       }
       const ctx = this.getContext(request);
-      verificationToken = await this.emailVerificationService.resendVerification(
-        user.id,
-        ctx,
-      );
+      verificationToken = await this.emailVerificationService.resendVerification(user.id, ctx);
     }
 
     return reply.status(200).send(
@@ -438,12 +411,31 @@ export class AuthController {
     }
 
     const ctx = this.getContext(request);
-    const result = await this.oauthService.handleCallback(code, state, ctx);
+    const config = getConfig();
+    const primaryOrigin = config?.CORS_ORIGIN?.split(',')[0]?.trim() || 'http://localhost:3000';
+
+    let result;
+    try {
+      result = await this.oauthService.handleCallback(code, state, ctx);
+    } catch (err: any) {
+      // Handle soft-deleted account in grace period — redirect to login with restore params
+      if (err?.requiresRestore) {
+        const restoreRedirectUrl =
+          `${primaryOrigin}/login?` +
+          new URLSearchParams({
+            requiresRestore: 'true',
+            email: err.email || '',
+            daysRemaining: String(err.daysRemaining || 15),
+            purgeDate: err.purgeDate || '',
+            tempToken: err.tempToken || '',
+          }).toString();
+        return reply.redirect(restoreRedirectUrl);
+      }
+      throw err;
+    }
 
     this.setRefreshTokenCookie(reply, result.refreshToken);
 
-    const config = getConfig();
-    const primaryOrigin = config?.CORS_ORIGIN?.split(',')[0]?.trim() || 'http://localhost:3000';
     const successType = result.isNewUser ? 'registration-success' : 'login-success';
     const redirectUrl =
       `${primaryOrigin}/success?` +
@@ -483,10 +475,28 @@ export class AuthController {
   // ─── MFA ENDPOINTS ────────────────────────────────
   // ═══════════════════════════════════════════════════
 
+  async mfaSetup(request: FastifyRequest, reply: FastifyReply) {
+    const { userId, email } = this.getAuthUser(request);
+    const setup = await this.mfaService.initiateTotpSetup(userId, email);
+    return reply.status(200).send(createSuccessResponse(setup, request.id));
+  }
+
   async mfaEnable(request: FastifyRequest, reply: FastifyReply) {
     const { userId, email } = this.getAuthUser(request);
     const data = validate(mfaEnableSchema, request.body);
     const ctx = this.getContext(request);
+
+    if (data.code) {
+      const recoveryCodes = await this.mfaService.verifyAndEnableTotp(userId, data.code, ctx);
+      return reply
+        .status(200)
+        .send(
+          createSuccessResponse(
+            { message: 'MFA enabled successfully', recoveryCodes },
+            request.id,
+          ),
+        );
+    }
 
     if (data.type === 'totp') {
       const setup = await this.mfaService.initiateTotpSetup(userId, email);
@@ -612,6 +622,18 @@ export class AuthController {
       .send(createSuccessResponse({ message: 'MFA successfully disabled' }, request.id));
   }
 
+  async sendMfaDisableOtp(request: FastifyRequest, reply: FastifyReply) {
+    const { userId } = this.getAuthUser(request);
+    await this.otpService.generateOtp(userId, 'mfa_disable');
+
+    return reply.status(200).send(
+      createSuccessResponse(
+        { message: 'A 6-digit verification code has been sent to your registered email address.' },
+        request.id,
+      ),
+    );
+  }
+
   async rotateRecoveryCodes(request: FastifyRequest, reply: FastifyReply) {
     const { userId } = this.getAuthUser(request);
     const { code } = request.body as { code: string };
@@ -723,6 +745,51 @@ export class AuthController {
 
     return reply
       .status(200)
-      .send(createSuccessResponse({ message: 'Account deleted successfully.' }, request.id));
+      .send(createSuccessResponse({ message: 'Account scheduled for deletion. You have 15 days to restore your account before permanent deletion.' }, request.id));
+  }
+
+  async restoreAccount(request: FastifyRequest, reply: FastifyReply) {
+    const { email, tempToken } = (request.body as any) || {};
+    if (!email) {
+      throw ErrorFactory.badRequest('Email is required to restore account');
+    }
+
+    const ctx = this.getContext(request);
+    const result = await this.authService.restoreAccount({
+      email,
+      tempToken,
+      ...ctx,
+    });
+
+    if (result.refreshToken) {
+      this.setRefreshTokenCookie(reply, result.refreshToken);
+    }
+
+    return reply.status(200).send(
+      createSuccessResponse(
+        {
+          message: 'Account restored successfully.',
+          accessToken: result.accessToken,
+          user: result.user,
+        },
+        request.id,
+      ),
+    );
+  }
+
+  async requestDataExport(request: FastifyRequest, reply: FastifyReply) {
+    const { userId } = this.getAuthUser(request);
+    const ctx = this.getContext(request);
+
+    await this.dataExportService.requestExport(userId, ctx);
+
+    return reply.status(200).send(
+      createSuccessResponse(
+        {
+          message: "Data export request received. We'll email you a secure download link within 24 hours.",
+        },
+        request.id,
+      ),
+    );
   }
 }

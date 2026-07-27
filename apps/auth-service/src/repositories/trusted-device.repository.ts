@@ -1,5 +1,6 @@
-import { eq, and, gt } from 'drizzle-orm';
 import { trustedDevices } from '@ai-career-os/database';
+import { eq, and, gt } from 'drizzle-orm';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 export interface DbTrustedDevice {
@@ -72,9 +73,7 @@ export class TrustedDeviceRepository {
     return this.db
       .select()
       .from(trustedDevices)
-      .where(
-        and(eq(trustedDevices.userId, userId), gt(trustedDevices.expiresAt, new Date())),
-      ) as Promise<DbTrustedDevice[]>;
+      .where(and(eq(trustedDevices.userId, userId), gt(trustedDevices.expiresAt, new Date())));
   }
 
   async updateLastUsed(id: string): Promise<void> {

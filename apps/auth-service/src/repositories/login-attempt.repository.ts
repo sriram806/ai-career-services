@@ -1,5 +1,6 @@
-import { eq, desc } from 'drizzle-orm';
 import { loginAttempts } from '@ai-career-os/database';
+import { eq, desc } from 'drizzle-orm';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 export interface DbLoginAttempt {
@@ -54,6 +55,6 @@ export class LoginAttemptRepository {
       .from(loginAttempts)
       .where(eq(loginAttempts.email, email))
       .orderBy(desc(loginAttempts.createdAt))
-      .limit(limit) as Promise<DbLoginAttempt[]>;
+      .limit(limit);
   }
 }

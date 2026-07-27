@@ -1,7 +1,7 @@
 import { CONSTANTS } from '@ai-career-os/common';
 
-import type { FastifyInstance, FastifyPluginCallback } from 'fastify';
 import type { ServiceStatus } from '@ai-career-os/types';
+import type { FastifyInstance, FastifyPluginCallback } from 'fastify';
 
 const startTime = Date.now();
 

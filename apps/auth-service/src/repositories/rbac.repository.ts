@@ -1,5 +1,6 @@
-import { eq, and, inArray } from 'drizzle-orm';
 import { roles, permissions, rolePermissions, userRoles } from '@ai-career-os/database';
+import { eq, and, inArray } from 'drizzle-orm';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 export interface DbRole {
@@ -22,11 +23,11 @@ export class RbacRepository {
   constructor(private readonly db: NodePgDatabase) {}
 
   async findAllRoles(): Promise<DbRole[]> {
-    return this.db.select().from(roles) as Promise<DbRole[]>;
+    return this.db.select().from(roles);
   }
 
   async findAllPermissions(): Promise<DbPermission[]> {
-    return this.db.select().from(permissions) as Promise<DbPermission[]>;
+    return this.db.select().from(permissions);
   }
 
   async findRoleByName(name: string): Promise<DbRole | null> {
@@ -97,10 +98,12 @@ export class RbacRepository {
       .from(userRoles)
       .where(eq(userRoles.userId, userId));
 
-    if (userRoleIds.length === 0) return [];
+    if (userRoleIds.length === 0) {
+      return [];
+    }
 
     const ids = userRoleIds.map((ur) => ur.roleId);
-    return this.db.select().from(roles).where(inArray(roles.id, ids)) as Promise<DbRole[]>;
+    return this.db.select().from(roles).where(inArray(roles.id, ids));
   }
 
   async findUserPermissions(userId: string): Promise<DbPermission[]> {
@@ -110,7 +113,9 @@ export class RbacRepository {
       .from(userRoles)
       .where(eq(userRoles.userId, userId));
 
-    if (userRoleIds.length === 0) return [];
+    if (userRoleIds.length === 0) {
+      return [];
+    }
 
     const ids = userRoleIds.map((ur) => ur.roleId);
 
@@ -120,13 +125,13 @@ export class RbacRepository {
       .from(rolePermissions)
       .where(inArray(rolePermissions.roleId, ids));
 
-    if (permIdsResult.length === 0) return [];
+    if (permIdsResult.length === 0) {
+      return [];
+    }
 
     const pIds = permIdsResult.map((pr) => pr.permissionId);
 
     // 3. Get permissions
-    return this.db.select().from(permissions).where(inArray(permissions.id, pIds)) as Promise<
-      DbPermission[]
-    >;
+    return this.db.select().from(permissions).where(inArray(permissions.id, pIds));
   }
 }

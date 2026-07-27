@@ -7,16 +7,18 @@ const SERVICE_NAME = 'auth-service';
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  const logger = createLogger(SERVICE_NAME, { level: config.LOG_LEVEL });
+  const logger = createLogger(SERVICE_NAME, {
+    level: config.LOG_LEVEL,
+  });
+
   const app = await buildApp(logger);
 
-  // ─── Graceful Shutdown ────────────────────────────
   const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
   for (const signal of signals) {
     process.on(signal, () => {
       logger.info({ signal }, 'Received shutdown signal');
       void app.close().then(() => {
-        logger.info('Server closed gracefully');
+        logger.info('Server closed');
         process.exit(0);
       });
     });
@@ -32,9 +34,9 @@ async function main(): Promise<void> {
     process.exit(1);
   });
 
-  // ─── Start Server ─────────────────────────────────
+  // Start Server
   try {
-    const port = 3001;
+    const port = config.AUTH_SERVICE_PORT;
     await app.listen({ port, host: '0.0.0.0' });
     logger.info({ port, environment: config.NODE_ENV }, `${SERVICE_NAME} started`);
   } catch (err) {

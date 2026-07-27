@@ -1,5 +1,7 @@
-import * as jwt from 'jsonwebtoken';
 import * as crypto from 'node:crypto';
+
+import * as jwt from 'jsonwebtoken';
+
 import type { UserRole } from '@ai-career-os/types';
 
 export interface AccessTokenPayload {
@@ -41,7 +43,7 @@ export class JwtService {
       sub: data.userId,
       email: data.email,
       role: data.role,
-      roles: data.roles || [data.role as string],
+      roles: data.roles || [data.role],
       permissions: data.permissions || [],
       sessionId: data.sessionId,
       iss: this.issuer,

@@ -6,9 +6,10 @@ import { z } from 'zod';
  */
 export const envSchema = z.object({
   // ─── Application ──────────────────────────────────
-  NODE_ENV: z.enum(['development', 'staging', 'production', 'testing']).default('development'),
+  NODE_ENV: z.enum(['development', 'staging', 'production', 'testing', 'test']).default('development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   PORT: z.coerce.number().int().positive().default(3000),
+  API_VERSION: z.string().default('v1'),
 
   // ─── PostgreSQL ───────────────────────────────────
   POSTGRES_HOST: z.string().min(1).default('localhost'),
@@ -80,6 +81,20 @@ export const envSchema = z.object({
   S3_SECRET_KEY: z.string().default('changeme_s3_secret'),
   S3_BUCKET: z.string().default('ai-career-os'),
   S3_REGION: z.string().default('us-east-1'),
+
+  // ─── Service Ports ─────────────────────────────────
+  GATEWAY_PORT: z.coerce.number().int().positive().default(4000),
+  AUTH_SERVICE_PORT: z.coerce.number().int().positive().default(3001),
+  USER_SERVICE_PORT: z.coerce.number().int().positive().default(3002),
+  CAREER_SERVICE_PORT: z.coerce.number().int().positive().default(3003),
+  EXAM_SERVICE_PORT: z.coerce.number().int().positive().default(3004),
+  AI_SERVICE_PORT: z.coerce.number().int().positive().default(3005),
+  ORG_SERVICE_PORT: z.coerce.number().int().positive().default(3006),
+  BILLING_SERVICE_PORT: z.coerce.number().int().positive().default(3007),
+  NOTIFICATION_SERVICE_PORT: z.coerce.number().int().positive().default(3008),
+  ADMIN_SERVICE_PORT: z.coerce.number().int().positive().default(3009),
+  ANALYTICS_SERVICE_PORT: z.coerce.number().int().positive().default(3010),
+  GITHUB_IMPORT_SERVICE_PORT: z.coerce.number().int().positive().default(3012),
 });
 
 /** Inferred TypeScript type from Zod schema */

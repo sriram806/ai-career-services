@@ -1,5 +1,6 @@
-import { eq } from 'drizzle-orm';
 import { mfaSettings, recoveryCodes } from '@ai-career-os/database';
+import { eq } from 'drizzle-orm';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 export interface DbMfaSettings {
@@ -79,7 +80,9 @@ export class MfaRepository {
     // Delete existing codes first
     await this.deleteRecoveryCodes(userId);
 
-    if (codeHashes.length === 0) return;
+    if (codeHashes.length === 0) {
+      return;
+    }
 
     await this.db.insert(recoveryCodes).values(
       codeHashes.map((hash) => ({
@@ -91,9 +94,7 @@ export class MfaRepository {
   }
 
   async findRecoveryCodesByUserId(userId: string): Promise<DbRecoveryCode[]> {
-    return this.db.select().from(recoveryCodes).where(eq(recoveryCodes.userId, userId)) as Promise<
-      DbRecoveryCode[]
-    >;
+    return this.db.select().from(recoveryCodes).where(eq(recoveryCodes.userId, userId));
   }
 
   async markRecoveryCodeUsed(id: string): Promise<void> {

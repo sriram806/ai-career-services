@@ -1,7 +1,8 @@
-import type { UserRepository } from '../repositories/user.repository';
-import type { AuditRepository } from '../repositories/audit.repository';
 import { ErrorFactory } from '@ai-career-os/errors';
+
 import type { OtpService } from './otp.service';
+import type { AuditRepository } from '../repositories/audit.repository';
+import type { UserRepository } from '../repositories/user.repository';
 
 /**
  * Email Verification Service.

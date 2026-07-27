@@ -1,7 +1,8 @@
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import { ErrorFactory } from '@ai-career-os/errors';
+
 import type { AuthController } from '../controllers/auth.controller';
 import type { JwtService } from '../services/jwt.service';
-import { ErrorFactory } from '@ai-career-os/errors';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 
 /**
  * Registers all 15 authentication API endpoints.
@@ -49,10 +50,14 @@ export function registerAuthRoutes(
 
   const optionalAuthenticate = async (request: FastifyRequest, _reply: FastifyReply) => {
     const authHeader = request.headers.authorization;
-    if (!authHeader) return;
+    if (!authHeader) {
+      return;
+    }
 
     const [scheme, token] = authHeader.split(' ');
-    if (scheme !== 'Bearer' || !token) return;
+    if (scheme !== 'Bearer' || !token) {
+      return;
+    }
 
     try {
       const payload = jwtService.verifyAccessToken(token);
@@ -341,11 +346,17 @@ export function registerAuthRoutes(
   );
 
   // MFA routes
+  fastify.post('/auth/mfa/setup', { preHandler: authenticate }, (req: any, rep: any) =>
+    controller.mfaSetup(req, rep),
+  );
   fastify.post('/auth/mfa/enable', { preHandler: authenticate }, (req: any, rep: any) =>
     controller.mfaEnable(req, rep),
   );
   fastify.post('/auth/mfa/disable', { preHandler: authenticate }, (req: any, rep: any) =>
     controller.mfaDisable(req, rep),
+  );
+  fastify.post('/auth/mfa/send-disable-otp', { preHandler: authenticate }, (req: any, rep: any) =>
+    controller.sendMfaDisableOtp(req, rep),
   );
   fastify.post('/auth/mfa/verify', { preHandler: optionalAuthenticate }, (req: any, rep: any) =>
     controller.mfaVerify(req, rep),
@@ -368,6 +379,12 @@ export function registerAuthRoutes(
   );
   fastify.post('/auth/delete-account', { preHandler: authenticate }, (req: any, rep: any) =>
     controller.deleteAccount(req, rep),
+  );
+  fastify.post('/auth/data-export', { preHandler: authenticate }, (req: any, rep: any) =>
+    controller.requestDataExport(req, rep),
+  );
+  fastify.post('/auth/restore-account', (req: any, rep: any) =>
+    controller.restoreAccount(req, rep),
   );
 
   // RBAC info routes

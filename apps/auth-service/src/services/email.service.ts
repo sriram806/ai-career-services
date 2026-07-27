@@ -1,6 +1,8 @@
-import * as nodemailer from 'nodemailer';
-import * as path from 'node:path';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+import * as nodemailer from 'nodemailer';
+
 import type { Logger } from 'pino';
 
 export interface EmailOptions {
@@ -8,6 +10,14 @@ export interface EmailOptions {
   subject: string;
   templateName: string;
   variables: Record<string, string>;
+}
+
+export interface EmailWithAttachmentOptions extends EmailOptions {
+  attachment: {
+    filename: string;
+    content: Buffer;
+    contentType: string;
+  };
 }
 
 export class EmailService {
@@ -112,6 +122,41 @@ export class EmailService {
       this.logger.error(
         { err, to: options.to, subject: options.subject, template: options.templateName },
         'Failed to send email',
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * Sends an email with a file attachment using a specified template.
+   */
+  async sendEmailWithAttachment(options: EmailWithAttachmentOptions): Promise<void> {
+    try {
+      const html = this.loadTemplate(options.templateName, options.variables);
+
+      const mailOptions = {
+        from: this.from,
+        to: options.to,
+        subject: options.subject,
+        html,
+        attachments: [
+          {
+            filename: options.attachment.filename,
+            content: options.attachment.content,
+            contentType: options.attachment.contentType,
+          },
+        ],
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      this.logger.info(
+        { to: options.to, subject: options.subject, template: options.templateName, attachment: options.attachment.filename },
+        'Email with attachment sent successfully',
+      );
+    } catch (err) {
+      this.logger.error(
+        { err, to: options.to, subject: options.subject, template: options.templateName },
+        'Failed to send email with attachment',
       );
       throw err;
     }

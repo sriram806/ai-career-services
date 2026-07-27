@@ -1,25 +1,31 @@
-import type { UserRepository, DbUser } from '../repositories/user.repository';
-import type { SessionRepository } from '../repositories/session.repository';
-import type { RefreshTokenRepository } from '../repositories/refresh-token.repository';
-import type { LoginAttemptRepository } from '../repositories/login-attempt.repository';
-import type { PasswordHistoryRepository } from '../repositories/password-history.repository';
-import type { AuditRepository } from '../repositories/audit.repository';
-import type { PasswordService } from './password.service';
+import * as crypto from 'node:crypto';
+
+import { ErrorFactory } from '@ai-career-os/errors';
+
 import type { JwtService } from './jwt.service';
+import type { PasswordService } from './password.service';
+import type { RbacService } from './rbac.service';
 import type { SessionService } from './session.service';
 import type { TrustedDeviceService } from './trusted-device.service';
-import type { Redis } from 'ioredis';
-import type { RbacService } from './rbac.service';
+import type { AuditRepository } from '../repositories/audit.repository';
+import type { LoginAttemptRepository } from '../repositories/login-attempt.repository';
 import type { MfaRepository } from '../repositories/mfa.repository';
-import * as crypto from 'node:crypto';
-import { ErrorFactory } from '@ai-career-os/errors';
+import type { PasswordHistoryRepository } from '../repositories/password-history.repository';
+import type { RefreshTokenRepository } from '../repositories/refresh-token.repository';
+import type { SessionRepository } from '../repositories/session.repository';
+import type { UserRepository, DbUser } from '../repositories/user.repository';
+import type { Redis } from 'ioredis';
 
 // ─── Response Interfaces ───────────────────────────
 
 export interface AuthResponse {
   accessToken?: string;
   refreshToken?: string;
-  user?: Omit<DbUser, 'deletedAt' | 'failedLoginAttempts' | 'lockUntil' | 'lastFailedLogin'>;
+  user?: Omit<DbUser, 'deletedAt' | 'failedLoginAttempts' | 'lockUntil' | 'lastFailedLogin' | 'fullName'> & {
+    name: string | null;
+    roles?: string[];
+    permissions?: string[];
+  };
   mfaRequired?: boolean;
   tempToken?: string;
 }
@@ -31,8 +37,15 @@ export interface RequestContext {
 
 // ─── Utility: strip internal-only fields from user response ───
 function sanitizeUser(user: DbUser) {
-  const { deletedAt, failedLoginAttempts, lockUntil, lastFailedLogin, ...safeUser } = user;
-  return safeUser;
+  const {
+    deletedAt: _deletedAt,
+    failedLoginAttempts: _failedLoginAttempts,
+    lockUntil: _lockUntil,
+    lastFailedLogin: _lastFailedLogin,
+    fullName,
+    ...safeUser
+  } = user;
+  return { ...safeUser, name: fullName ?? null };
 }
 
 /**
@@ -78,25 +91,9 @@ export class AuthService {
     private readonly rbacService: RbacService,
     private readonly mfaRepository: MfaRepository,
     public readonly redisClient: Redis,
-  ) {}
+  ) { }
 
-  // ═════════════════════════════════════════════════════
-  // ─── REGISTRATION ───────────────────────────────────
-  // ═════════════════════════════════════════════════════
-
-  /**
-   * Registers a new user account (inactive, pending email verification).
-   *
-   * Flow:
-   *   1. Validate password policy
-   *   2. Check email + username uniqueness (+ phone if provided)
-   *   3. Create user record (status: pending_verification)
-   *   4. Create credentials record (Argon2id hash)
-   *   5. Save initial password hash to history
-   *   6. Audit log: user.registered
-   *
-   * Returns the created user (caller is responsible for email verification flow).
-   */
+  // REGISTRATION 
   async register(
     data: {
       email: string;
@@ -110,7 +107,7 @@ export class AuthService {
       role: string;
     } & RequestContext,
   ): Promise<{ user: DbUser }> {
-    // 1. Validate password policy
+    // Validate password policy
     const policy = this.passwordService.validatePasswordPolicy(data.password, {
       username: data.username,
       email: data.email,
@@ -119,7 +116,7 @@ export class AuthService {
       throw ErrorFactory.badRequest(policy.reason || 'Password does not meet requirements');
     }
 
-    // 2. Normalize
+    // Normalize
     const email = data.email.toLowerCase().trim();
     const username = data.username.trim();
 
@@ -151,19 +148,21 @@ export class AuthService {
       country: data.country,
       termsAccepted: data.termsAccepted,
       role: data.role,
+      position:
+        data.role === 'recruiter' ? 'Recruiter' : data.role === 'mentor' ? 'Mentor' : 'Candidate',
     });
 
     // 5. Hash password and create credentials
     const passwordHash = await this.passwordService.hashPassword(data.password);
     await this.userRepository.createCredentials(user.id, passwordHash);
 
-    // 6. Save to password history
+    // Save to password history
     await this.passwordHistoryRepository.addEntry(user.id, passwordHash);
 
     // Assign default role in RBAC system
     await this.rbacService.assignRoleToUser(user.id, data.role || 'candidate');
 
-    // 7. Audit
+    // Audit
     await this.auditRepository.createSecurityEvent({
       userId: user.id,
       eventType: 'user.registered',
@@ -226,7 +225,7 @@ export class AuthService {
     }
 
     // 2. Look up user
-    const user = await this.userRepository.findByEmail(email);
+    const user = await this.userRepository.findByEmailIncludingDeleted(email);
     if (!user) {
       throw ErrorFactory.badRequest('Email is not registered');
     }
@@ -307,6 +306,35 @@ export class AuthService {
       throw ErrorFactory.unauthorized(msg);
     }
 
+    // Check if account is scheduled for deletion (15-day grace period)
+    if (user.deletedAt) {
+      const deletionTime = user.deletedAt.getTime();
+      const purgeTime = deletionTime + 15 * 24 * 60 * 60 * 1000;
+      if (Date.now() > purgeTime) {
+        await this.userRepository.hardDeleteUser(user.id);
+        throw ErrorFactory.forbidden('Your account was permanently erased after the 15-day grace period.');
+      }
+
+      const daysRemaining = Math.max(1, Math.ceil((purgeTime - Date.now()) / (1000 * 60 * 60 * 24)));
+      const tempToken = crypto.randomBytes(32).toString('hex');
+      await this.redisClient.set(
+        `restore:temp:${tempToken}`,
+        JSON.stringify({ userId: user.id, email: user.email }),
+        'EX',
+        900,
+      );
+
+      return {
+        user,
+        requiresRestore: true,
+        email: user.email,
+        deletionDate: user.deletedAt,
+        purgeDate: new Date(purgeTime),
+        daysRemaining,
+        tempToken,
+      } as any;
+    }
+
     // 6. Verify email is confirmed
     if (user.status === 'pending_verification') {
       throw ErrorFactory.forbidden('Please verify your email address before logging in.');
@@ -335,7 +363,7 @@ export class AuthService {
       return {
         mfaRequired: true,
         tempToken,
-      } as any;
+      };
     }
 
     // 7. Successful login — clear all lockout state
@@ -400,7 +428,11 @@ export class AuthService {
     return {
       accessToken,
       refreshToken: plainRefreshToken,
-      user: sanitizeUser(user),
+      user: {
+        ...sanitizeUser(user),
+        roles,
+        permissions,
+      },
     };
   }
 
@@ -503,7 +535,7 @@ export class AuthService {
       accessToken,
       refreshToken: newPlainRefreshToken,
       isRememberMe,
-    } as any;
+    };
   }
 
   // ═════════════════════════════════════════════════════
@@ -636,17 +668,26 @@ export class AuthService {
    * Fetches sanitized profile for the authenticated user.
    * Strips all security-internal fields (lockout state, deleted_at, etc.).
    */
-  async getMe(
-    userId: string,
-  ): Promise<ReturnType<typeof sanitizeUser> & { mfaEnabled: boolean; mfaType: string | null }> {
+  async getMe(userId: string): Promise<
+    ReturnType<typeof sanitizeUser> & {
+      mfaEnabled: boolean;
+      mfaType: string | null;
+      roles: string[];
+      permissions: string[];
+    }
+  > {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw ErrorFactory.notFound('User');
     }
     const mfa = await this.mfaRepository.findByUserId(userId);
+    const roles = await this.rbacService.getUserRoles(userId);
+    const permissions = await this.rbacService.getUserPermissions(userId);
     const sanitized = sanitizeUser(user);
     return {
       ...sanitized,
+      roles,
+      permissions,
       mfaEnabled: mfa ? mfa.totpEnabled || mfa.emailEnabled : false,
       mfaType: mfa ? (mfa.totpEnabled ? 'totp' : mfa.emailEnabled ? 'email' : null) : null,
     };
@@ -764,7 +805,66 @@ export class AuthService {
       eventType: 'user.account.deleted',
       ipAddress: data.ipAddress,
       userAgent: data.userAgent,
-      details: { reason: 'User deleted account' },
+      details: { reason: 'User requested account deletion (scheduled 15-day soft delete)' },
     });
+  }
+
+  async restoreAccount(
+    data: {
+      email: string;
+      tempToken?: string;
+    } & RequestContext,
+  ): Promise<AuthResponse> {
+    const email = data.email.toLowerCase().trim();
+    const user = await this.userRepository.findByEmailIncludingDeleted(email);
+    if (!user || !user.deletedAt) {
+      throw ErrorFactory.badRequest('No pending account deletion found for this email.');
+    }
+
+    const purgeTime = user.deletedAt.getTime() + 15 * 24 * 60 * 60 * 1000;
+    if (Date.now() > purgeTime) {
+      await this.userRepository.hardDeleteUser(user.id);
+      throw ErrorFactory.forbidden('Your account was permanently erased after the 15-day grace period.');
+    }
+
+    // Cancel deletion and restore user status
+    await this.userRepository.restoreUser(user.id);
+
+    if (data.tempToken) {
+      await this.redisClient.del(`restore:temp:${data.tempToken}`);
+    }
+
+    // Audit event
+    await this.auditRepository.createSecurityEvent({
+      userId: user.id,
+      eventType: 'user.account.restored',
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+      details: { email },
+    });
+
+    // Create session and return tokens
+    const plainRefreshToken = this.jwtService.generateRefreshToken(true);
+    const tokenHash = this.jwtService.hashToken(plainRefreshToken);
+
+    const session = await this.sessionService.createSession({
+      userId: user.id,
+      refreshTokenHash: tokenHash,
+      userAgent: data.userAgent,
+      ipAddress: data.ipAddress,
+    });
+
+    const accessToken = this.jwtService.generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role || 'candidate',
+      sessionId: session.id,
+    });
+
+    return {
+      user: user as any,
+      accessToken,
+      refreshToken: plainRefreshToken,
+    };
   }
 }

@@ -1,5 +1,6 @@
-import { eq, desc } from 'drizzle-orm';
 import { loginHistory, securityEvents } from '@ai-career-os/database';
+import { eq, desc } from 'drizzle-orm';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 export class AuditRepository {

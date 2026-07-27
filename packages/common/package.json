@@ -15,6 +15,7 @@
     "lint:fix": "eslint src/ --ext .ts --fix"
   },
   "dependencies": {
+    "@ai-career-os/config": "*",
     "@ai-career-os/types": "*"
   },
   "devDependencies": {

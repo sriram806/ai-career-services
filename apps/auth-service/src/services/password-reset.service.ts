@@ -1,13 +1,15 @@
 import * as crypto from 'node:crypto';
-import type { PasswordResetRepository } from '../repositories/password-reset.repository';
-import type { UserRepository } from '../repositories/user.repository';
-import type { SessionRepository } from '../repositories/session.repository';
-import type { PasswordHistoryRepository } from '../repositories/password-history.repository';
-import type { AuditRepository } from '../repositories/audit.repository';
-import type { PasswordService } from './password.service';
-import type { Redis } from 'ioredis';
+
 import { ErrorFactory } from '@ai-career-os/errors';
+
 import type { EmailService } from './email.service';
+import type { PasswordService } from './password.service';
+import type { AuditRepository } from '../repositories/audit.repository';
+import type { PasswordHistoryRepository } from '../repositories/password-history.repository';
+import type { PasswordResetRepository } from '../repositories/password-reset.repository';
+import type { SessionRepository } from '../repositories/session.repository';
+import type { UserRepository } from '../repositories/user.repository';
+import type { Redis } from 'ioredis';
 
 /**
  * Password Reset Service.

@@ -95,6 +95,11 @@ export function proxyTo(serviceUrl: string, serviceName: string) {
       'user-agent': request.headers['user-agent'] ?? '',
     };
 
+    // Forward cookies so httpOnly refresh tokens reach downstream services
+    if (request.headers['cookie']) {
+      headers['cookie'] = request.headers['cookie'];
+    }
+
     if (request.headers['content-type']) {
       headers['content-type'] = request.headers['content-type'];
     }

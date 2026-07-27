@@ -1,14 +1,16 @@
 import * as crypto from 'node:crypto';
-import type { OAuthRepository } from '../repositories/oauth.repository';
-import type { UserRepository } from '../repositories/user.repository';
-import type { SessionService } from './session.service';
-import type { RefreshTokenRepository } from '../repositories/refresh-token.repository';
-import type { AuditRepository } from '../repositories/audit.repository';
-import type { RbacService } from './rbac.service';
-import type { JwtService } from './jwt.service';
-import type { Redis } from 'ioredis';
-import { ErrorFactory } from '@ai-career-os/errors';
+
 import { getConfig } from '@ai-career-os/config';
+import { ErrorFactory } from '@ai-career-os/errors';
+
+import type { JwtService } from './jwt.service';
+import type { RbacService } from './rbac.service';
+import type { SessionService } from './session.service';
+import type { AuditRepository } from '../repositories/audit.repository';
+import type { OAuthRepository } from '../repositories/oauth.repository';
+import type { RefreshTokenRepository } from '../repositories/refresh-token.repository';
+import type { UserRepository } from '../repositories/user.repository';
+import type { Redis } from 'ioredis';
 
 interface OAuthProviderConfig {
   clientId: string;
@@ -149,9 +151,13 @@ export class OAuthService {
       throw ErrorFactory.badRequest('OAuth state invalid or session expired');
     }
 
-    const { provider, nonce: _nonce, codeVerifier, redirectUri, intent = 'login' } = JSON.parse(
-      flowData,
-    ) as {
+    const {
+      provider,
+      nonce: _nonce,
+      codeVerifier,
+      redirectUri,
+      intent = 'login',
+    } = JSON.parse(flowData) as {
       provider: string;
       nonce?: string;
       codeVerifier: string;
@@ -165,7 +171,9 @@ export class OAuthService {
 
     // 3. User mapping / creation logic
     const email = profile.email.toLowerCase().trim();
-    let user = await this.userRepository.findByEmail(email);
+
+    // Use findByEmailIncludingDeleted to detect soft-deleted accounts in grace period
+    let user = await this.userRepository.findByEmailIncludingDeleted(email);
     const isNewUser = !user;
 
     if (!user) {
@@ -184,6 +192,37 @@ export class OAuthService {
 
       // Assign default candidate role in RBAC system
       await this.rbacService.assignRoleToUser(user.id, 'candidate');
+    } else if (user.deletedAt) {
+      // Account is in the 15-day soft-delete grace period
+      const purgeTime = user.deletedAt.getTime() + 15 * 24 * 60 * 60 * 1000;
+      if (Date.now() > purgeTime) {
+        // Grace period has expired — hard delete and block login
+        await this.userRepository.hardDeleteUser(user.id);
+        throw ErrorFactory.forbidden(
+          'Your account was permanently erased after the 15-day grace period. Please create a new account.',
+        );
+      }
+
+      // Within grace period — signal the frontend to show the restore modal
+      const daysRemaining = Math.ceil((purgeTime - Date.now()) / (24 * 60 * 60 * 1000));
+      const purgeDate = new Date(purgeTime).toISOString();
+      // Store a temp token for restore via OAuth
+      const tempToken = crypto.randomBytes(16).toString('hex');
+      await this.redisClient.set(
+        `restore:temp:${tempToken}`,
+        JSON.stringify({ email, userId: user.id }),
+        'EX',
+        900, // 15 minutes
+      );
+
+      // Throw a special error that the controller will catch and handle as requiresRestore
+      const err = ErrorFactory.badRequest('Account pending deletion') as any;
+      err.requiresRestore = true;
+      err.daysRemaining = daysRemaining;
+      err.purgeDate = purgeDate;
+      err.tempToken = tempToken;
+      err.email = email;
+      throw err;
     } else {
       // Link account if existing local/SSO user
       if (user.status === 'pending_verification') {
@@ -397,7 +436,9 @@ export class OAuthService {
     };
 
     if (!tokenResponse.ok || !tokenData.access_token) {
-      throw new Error(tokenData.error_description || tokenData.error || 'Google token exchange failed');
+      throw new Error(
+        tokenData.error_description || tokenData.error || 'Google token exchange failed',
+      );
     }
 
     const userResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
@@ -456,7 +497,9 @@ export class OAuthService {
     };
 
     if (!tokenResponse.ok || !tokenData.access_token) {
-      throw new Error(tokenData.error_description || tokenData.error || 'GitHub token exchange failed');
+      throw new Error(
+        tokenData.error_description || tokenData.error || 'GitHub token exchange failed',
+      );
     }
 
     const [profileResponse, emailsResponse] = await Promise.all([

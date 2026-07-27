@@ -64,7 +64,9 @@ export class SessionService {
    */
   async isSessionActive(sessionId: string): Promise<boolean> {
     const session = await this.sessionRepository.findById(sessionId);
-    if (!session || !session.isActive) return false;
+    if (!session?.isActive) {
+      return false;
+    }
     return session.expiresAt.getTime() > Date.now();
   }
 
@@ -97,7 +99,7 @@ export class SessionService {
    */
   async getActiveSessions(userId: string): Promise<Omit<DbSession, 'refreshTokenHash'>[]> {
     const sessions = await this.sessionRepository.findActiveSessionsByUserId(userId);
-    return sessions.map(({ refreshTokenHash, ...rest }) => rest);
+    return sessions.map(({ refreshTokenHash: _, ...rest }) => rest);
   }
 
   /**
@@ -120,17 +122,27 @@ export class SessionService {
     let browser = 'Unknown Browser';
     let deviceName = 'Desktop';
 
-    if (/Windows/i.test(userAgent)) os = 'Windows';
-    else if (/Macintosh|Mac OS X/i.test(userAgent)) os = 'macOS';
-    else if (/Linux/i.test(userAgent)) os = 'Linux';
-    else if (/Android/i.test(userAgent)) os = 'Android';
-    else if (/iPhone|iPad|iPod/i.test(userAgent)) os = 'iOS';
+    if (/Windows/i.test(userAgent)) {
+      os = 'Windows';
+    } else if (/Macintosh|Mac OS X/i.test(userAgent)) {
+      os = 'macOS';
+    } else if (/Linux/i.test(userAgent)) {
+      os = 'Linux';
+    } else if (/Android/i.test(userAgent)) {
+      os = 'Android';
+    } else if (/iPhone|iPad|iPod/i.test(userAgent)) {
+      os = 'iOS';
+    }
 
-    if (/Chrome/i.test(userAgent) && !/Edge|Chrome\-Lighthouse/i.test(userAgent))
+    if (/Chrome/i.test(userAgent) && !/Edge|Chrome-Lighthouse/i.test(userAgent)) {
       browser = 'Chrome';
-    else if (/Safari/i.test(userAgent) && !/Chrome/i.test(userAgent)) browser = 'Safari';
-    else if (/Firefox/i.test(userAgent)) browser = 'Firefox';
-    else if (/Edg/i.test(userAgent)) browser = 'Edge';
+    } else if (/Safari/i.test(userAgent) && !/Chrome/i.test(userAgent)) {
+      browser = 'Safari';
+    } else if (/Firefox/i.test(userAgent)) {
+      browser = 'Firefox';
+    } else if (/Edg/i.test(userAgent)) {
+      browser = 'Edge';
+    }
 
     if (/Mobile|Android|iPhone|iPod/i.test(userAgent)) {
       deviceName = /iPad/i.test(userAgent) ? 'Tablet' : 'Mobile';

@@ -1,7 +1,8 @@
+import { ErrorFactory } from '@ai-career-os/errors';
+
+import type { AuditRepository } from '../repositories/audit.repository';
 import type { RbacRepository, DbRole, DbPermission } from '../repositories/rbac.repository';
 import type { Redis } from 'ioredis';
-import type { AuditRepository } from '../repositories/audit.repository';
-import { ErrorFactory } from '@ai-career-os/errors';
 
 export class RbacService {
   private readonly CACHE_TTL = 3600; // 1 hour
@@ -60,7 +61,9 @@ export class RbacService {
    */
   async seedRolesAndPermissions(): Promise<void> {
     const existingRoles = await this.rbacRepository.findAllRoles();
-    if (existingRoles.length > 0) return; // Already seeded
+    if (existingRoles.length > 0) {
+      return;
+    } // Already seeded
 
     const permissionsMap: Record<string, DbPermission> = {};
 

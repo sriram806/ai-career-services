@@ -1,5 +1,6 @@
-import { eq, and } from 'drizzle-orm';
 import { oauthAccounts, connectedAccounts } from '@ai-career-os/database';
+import { eq, and } from 'drizzle-orm';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 export interface DbOAuthAccount {
@@ -55,9 +56,7 @@ export class OAuthRepository {
   }
 
   async findOAuthAccountsByUserId(userId: string): Promise<DbOAuthAccount[]> {
-    return this.db.select().from(oauthAccounts).where(eq(oauthAccounts.userId, userId)) as Promise<
-      DbOAuthAccount[]
-    >;
+    return this.db.select().from(oauthAccounts).where(eq(oauthAccounts.userId, userId));
   }
 
   async deleteOAuthAccount(userId: string, provider: string): Promise<void> {
@@ -85,10 +84,7 @@ export class OAuthRepository {
   }
 
   async findConnectedAccountsByUserId(userId: string): Promise<DbConnectedAccount[]> {
-    return this.db
-      .select()
-      .from(connectedAccounts)
-      .where(eq(connectedAccounts.userId, userId)) as Promise<DbConnectedAccount[]>;
+    return this.db.select().from(connectedAccounts).where(eq(connectedAccounts.userId, userId));
   }
 
   async deleteConnectedAccount(userId: string, provider: string): Promise<void> {

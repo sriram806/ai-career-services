@@ -1,9 +1,11 @@
 import * as crypto from 'node:crypto';
+
+import { ErrorFactory } from '@ai-career-os/errors';
+
+import type { EmailService } from './email.service';
 import type { OtpRepository, DbOtpCode } from '../repositories/otp.repository';
 import type { UserRepository } from '../repositories/user.repository';
 import type { Redis } from 'ioredis';
-import { ErrorFactory } from '@ai-career-os/errors';
-import type { EmailService } from './email.service';
 
 /**
  * Enterprise OTP Service.

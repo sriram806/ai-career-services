@@ -1,5 +1,6 @@
-import { eq } from 'drizzle-orm';
 import { passwordResetTokens } from '@ai-career-os/database';
+import { eq } from 'drizzle-orm';
+
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 export interface DbPasswordResetToken {

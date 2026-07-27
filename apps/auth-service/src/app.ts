@@ -1,67 +1,52 @@
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
-import helmet from '@fastify/helmet';
-import swagger from '@fastify/swagger';
-import swaggerUi from '@fastify/swagger-ui';
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-
-import { errorHandler } from '@ai-career-os/errors';
-import { requestLoggerPlugin } from '@ai-career-os/logger';
 import { CONSTANTS } from '@ai-career-os/common';
 import { getConfig } from '@ai-career-os/config';
 import { PostgresConnection, RedisConnection } from '@ai-career-os/database';
+import { errorHandler } from '@ai-career-os/errors';
+import { requestLoggerPlugin } from '@ai-career-os/logger';
+import cookie from '@fastify/cookie';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
+import swagger from '@fastify/swagger';
+import Fastify from 'fastify';
+import swaggerUi from '@fastify/swagger-ui';
 
 // ─── Repositories ─────────────────────────────────
-import { UserRepository } from './repositories/user.repository';
-import { SessionRepository } from './repositories/session.repository';
-
-import { RefreshTokenRepository } from './repositories/refresh-token.repository';
+import { AuthController } from './controllers/auth.controller';
 import { AuditRepository } from './repositories/audit.repository';
+import { LoginAttemptRepository } from './repositories/login-attempt.repository';
+import { MfaRepository } from './repositories/mfa.repository';
+import { OAuthRepository } from './repositories/oauth.repository';
+import { OtpRepository } from './repositories/otp.repository';
 import { PasswordHistoryRepository } from './repositories/password-history.repository';
 import { PasswordResetRepository } from './repositories/password-reset.repository';
+import { RefreshTokenRepository } from './repositories/refresh-token.repository';
+import { SessionRepository } from './repositories/session.repository';
+import { UserRepository } from './repositories/user.repository';
+
 import { TrustedDeviceRepository } from './repositories/trusted-device.repository';
-import { LoginAttemptRepository } from './repositories/login-attempt.repository';
-import { OAuthRepository } from './repositories/oauth.repository';
-import { MfaRepository } from './repositories/mfa.repository';
 import { RbacRepository } from './repositories/rbac.repository';
-import { OtpRepository } from './repositories/otp.repository';
 
 // ─── Services ─────────────────────────────────────
-import { EmailService } from './services/email.service';
-import { PasswordService } from './services/password.service';
-import { JwtService } from './services/jwt.service';
-
-import { AuthService } from './services/auth.service';
-import { SessionService } from './services/session.service';
-import { EmailVerificationService } from './services/email-verification.service';
-import { PasswordResetService } from './services/password-reset.service';
-import { TrustedDeviceService } from './services/trusted-device.service';
-import { OAuthService } from './services/oauth.service';
-import { MfaService } from './services/mfa.service';
-import { RbacService } from './services/rbac.service';
-import { OtpService } from './services/otp.service';
-
-// ─── Controller & Routes ──────────────────────────
-import { AuthController } from './controllers/auth.controller';
 import { registerAuthRoutes } from './routes/auth';
 import { healthRoutes } from './routes/health';
+import { AuthService } from './services/auth.service';
+import { EmailVerificationService } from './services/email-verification.service';
+import { EmailService } from './services/email.service';
+import { JwtService } from './services/jwt.service';
+import { MfaService } from './services/mfa.service';
+import { OAuthService } from './services/oauth.service';
+import { OtpService } from './services/otp.service';
+import { PasswordResetService } from './services/password-reset.service';
+import { PasswordService } from './services/password.service';
 
-/**
- * Builds and configures the Fastify application instance.
- *
- * Architecture:
- *   - Manual dependency injection (no DI container)
- *   - Repository → Service → Controller layering
- *   - All database connections managed via lifecycle hooks
- *   - Graceful shutdown via onClose hooks
- *
- * Why manual DI instead of a container:
- *   - Zero runtime overhead (no reflection, no decorators)
- *   - Explicit dependency graph is easier to reason about
- *   - TypeScript compiler enforces correctness at build time
- *   - Simpler debugging — no magic happening behind the scenes
- */
+import { DataExportService } from './services/data-export.service';
+import { RbacService } from './services/rbac.service';
+import { SessionService } from './services/session.service';
+import { TrustedDeviceService } from './services/trusted-device.service';
+
+
+
 export async function buildApp(logger: any): Promise<any> {
   const config = getConfig();
 
@@ -142,8 +127,9 @@ export async function buildApp(logger: any): Promise<any> {
 
   const trustedDeviceService = new TrustedDeviceService(trustedDeviceRepository, auditRepository);
 
+  const otpService = new OtpService(otpRepository, userRepository, redisClient, emailService);
+  const mfaService = new MfaService(mfaRepository, auditRepository, redisClient, otpService);
   const rbacService = new RbacService(rbacRepository, auditRepository, redisClient);
-  const mfaService = new MfaService(mfaRepository, auditRepository, redisClient);
 
   const oauthService = new OAuthService(
     oauthRepository,
@@ -160,13 +146,6 @@ export async function buildApp(logger: any): Promise<any> {
   void rbacService.seedRolesAndPermissions().catch((err) => {
     logger.error({ err }, 'Failed to seed default roles and permissions');
   });
-
-  const otpService = new OtpService(
-    otpRepository,
-    userRepository,
-    redisClient,
-    emailService,
-  );
 
   const emailVerificationService = new EmailVerificationService(
     userRepository,
@@ -201,6 +180,16 @@ export async function buildApp(logger: any): Promise<any> {
     redisClient,
   );
 
+  const dataExportService = new DataExportService(
+    userRepository,
+    sessionRepository,
+    mfaRepository,
+    oauthRepository,
+    auditRepository,
+    emailService,
+    redisClient,
+  );
+
   // ─── Controller Layer ───────────────────────────
   const authController = new AuthController(
     authService,
@@ -209,6 +198,8 @@ export async function buildApp(logger: any): Promise<any> {
     sessionService,
     trustedDeviceService,
     mfaService,
+    dataExportService,
+    otpService,
 
     rbacService,
     oauthService,
@@ -237,9 +228,7 @@ export async function buildApp(logger: any): Promise<any> {
 
   // ─── Plugins & Security Middleware ──────────────
   await app.register(helmet, { contentSecurityPolicy: false });
-  const corsOrigins = config.CORS_ORIGIN
-    ? config.CORS_ORIGIN.split(',').map((o) => o.trim())
-    : ['http://localhost:3000'];
+  const corsOrigins = config.CORS_ORIGIN ? config.CORS_ORIGIN.split(',').map((o) => o.trim()) : ['http://localhost:3000'];
 
   await app.register(cors, {
     origin: corsOrigins,
