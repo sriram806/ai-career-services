@@ -40,9 +40,6 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-
-    /* Paths */
-    "baseUrl": ".",
     "incremental": true
   },
   "exclude": ["node_modules", "dist", "coverage", "**/*.test.ts", "**/*.spec.ts"]
