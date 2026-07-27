@@ -114,9 +114,12 @@ export class OtpService {
     // Send OTP email asynchronously
     const user = await this.userRepository.findById(userId);
     if (user) {
-      this.emailService.sendOtpEmail(user.email, purpose, code).catch((err) => {
-        console.error(`Failed to send OTP email to ${user.email}:`, err);
-      });
+      try {
+        await this.emailService.sendOtpEmail(user.email, purpose, code);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(`Failed to dispatch OTP email to ${user.email}:`, err);
+      }
     }
 
     return code;
