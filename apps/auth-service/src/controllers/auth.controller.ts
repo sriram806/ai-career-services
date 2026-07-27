@@ -223,10 +223,19 @@ export class AuthController {
 
     const resetToken = await this.passwordResetService.generateResetToken(data.email, ctx);
 
+    if (!resetToken) {
+      const email = data.email.toLowerCase().trim();
+      const user = await this.userRepository.findByEmail(email);
+      if (!user) {
+        throw ErrorFactory.notFound(`No account found with email address: ${data.email}`);
+      }
+      throw ErrorFactory.badRequest('A password reset link was sent recently. Please wait 60 seconds before requesting another.');
+    }
+
     return reply.status(200).send(
       createSuccessResponse(
         {
-          message: 'If the email matches an account, a password reset link has been sent.',
+          message: 'Password reset link has been sent successfully.',
           resetToken,
         },
         request.id,
