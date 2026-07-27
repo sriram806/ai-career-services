@@ -199,6 +199,7 @@ export async function buildApp(logger: any): Promise<any> {
     rbacService,
     mfaRepository,
     redisClient,
+    otpService,
   );
 
   const dataExportService = new DataExportService(

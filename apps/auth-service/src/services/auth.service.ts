@@ -3,6 +3,7 @@ import * as crypto from 'node:crypto';
 import { ErrorFactory } from '@ai-career-os/errors';
 
 import type { JwtService } from './jwt.service';
+import type { OtpService } from './otp.service';
 import type { PasswordService } from './password.service';
 import type { RbacService } from './rbac.service';
 import type { SessionService } from './session.service';
@@ -91,6 +92,7 @@ export class AuthService {
     private readonly rbacService: RbacService,
     private readonly mfaRepository: MfaRepository,
     public readonly redisClient: Redis,
+    private readonly otpService?: OtpService,
   ) { }
 
   // REGISTRATION 
@@ -170,6 +172,16 @@ export class AuthService {
       userAgent: data.userAgent,
       details: { email, username, role: data.role },
     });
+
+    // Dispatch OTP verification email upon registration
+    if (this.otpService) {
+      try {
+        await this.otpService.generateOtp(user.id, 'email_verification');
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(`Failed to dispatch registration OTP email to ${user.email}:`, err);
+      }
+    }
 
     return { user };
   }
