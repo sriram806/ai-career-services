@@ -369,6 +369,7 @@ CREATE TABLE "users" (
 	"phone_verified" boolean DEFAULT false NOT NULL,
 	"terms_accepted_at" timestamp with time zone,
 	"role" varchar(50) DEFAULT 'candidate' NOT NULL,
+	"position" varchar(100) DEFAULT 'Candidate',
 	"failed_login_attempts" integer DEFAULT 0 NOT NULL,
 	"lock_until" timestamp with time zone,
 	"last_failed_login" timestamp with time zone,
