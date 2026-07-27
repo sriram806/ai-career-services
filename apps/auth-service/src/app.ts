@@ -27,7 +27,7 @@ import { UserRepository } from './repositories/user.repository';
 import { TrustedDeviceRepository } from './repositories/trusted-device.repository';
 import { RbacRepository } from './repositories/rbac.repository';
 
-import { IEmailProvider, ResendProvider, NodemailerProvider, FallbackEmailProvider } from './providers';
+import { NodemailerProvider } from './providers';
 
 // ─── Services ─────────────────────────────────────
 import { registerAuthRoutes } from './routes/auth';
@@ -113,30 +113,16 @@ export async function buildApp(logger: any): Promise<any> {
   const otpRepository = new OtpRepository(db);
 
   // ─── Service Layer ──────────────────────────────
-  const providers: IEmailProvider[] = [];
-
-  const resendApiKey = config.RESEND_API_KEY || process.env['RESEND_API_KEY'];
-  if (resendApiKey && resendApiKey !== 're_placeholder_key') {
-    providers.push(new ResendProvider(resendApiKey, logger));
-  }
-
-  providers.push(
-    new NodemailerProvider(
-      {
-        host: config.SMTP_HOST,
-        port: config.SMTP_PORT,
-        user: config.SMTP_USER,
-        pass: config.SMTP_PASS,
-        secure: config.SMTP_SECURE,
-      },
-      logger,
-    ),
+  const emailProvider = new NodemailerProvider(
+    {
+      host: config.SMTP_HOST,
+      port: config.SMTP_PORT,
+      user: config.SMTP_USER,
+      pass: config.SMTP_PASS,
+      secure: config.SMTP_SECURE,
+    },
+    logger,
   );
-
-  const emailProvider =
-    providers.length > 1
-      ? new FallbackEmailProvider(providers, logger)
-      : providers[0]!;
 
   const emailService = new EmailService(
     emailProvider,

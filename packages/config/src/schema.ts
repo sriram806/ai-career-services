@@ -48,16 +48,15 @@ export const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
 
-  // ─── SMTP Mailer / Resend API ─────────────────────
-  RESEND_API_KEY: z.string().optional(),
-  SMTP_HOST: z.string().min(1).default('localhost'),
-  SMTP_PORT: z.coerce.number().int().positive().default(1025),
+  // ─── Brevo SMTP Mailer ────────────────────────────
+  SMTP_HOST: z.string().min(1).default('smtp-relay.brevo.com'),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_SECURE: z
     .preprocess((val) => (typeof val === 'string' ? val.toLowerCase() === 'true' : Boolean(val)), z.boolean())
     .default(false),
-  SMTP_FROM: z.string().default('AI Career OS <onboarding@resend.dev>'),
+  SMTP_FROM: z.string().default('AI Career OS <boddusriram1234@gmail.com>'),
 
   // ─── GitHub OAuth Ingestion ──────────────────────
   GITHUB_CLIENT_ID: z.string().default('mock_github_client_id'),

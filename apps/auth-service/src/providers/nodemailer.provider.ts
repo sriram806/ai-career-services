@@ -22,17 +22,17 @@ export class NodemailerProvider implements IEmailProvider {
     this.logger = logger.child({ component: 'NodemailerProvider' });
 
     const portNum = Number(config.port) || 587;
-    const isSecure = portNum === 465;
+    const isSecure = portNum === 465 || String(config.secure) === 'true';
 
     const transportConfig: any = {
-      host: config.host,
+      host: config.host || 'smtp-relay.brevo.com',
       port: portNum,
       secure: isSecure,
       requireTLS: !isSecure,
-      connectionTimeout: 10000,
-      socketTimeout: 10000,
-      greetingTimeout: 10000,
-      dnsTimeout: 8000,
+      connectionTimeout: 15000,
+      socketTimeout: 15000,
+      greetingTimeout: 15000,
+      dnsTimeout: 10000,
       tls: {
         rejectUnauthorized: false,
         minVersion: 'TLSv1.2',
@@ -50,6 +50,18 @@ export class NodemailerProvider implements IEmailProvider {
     }
 
     this.transporter = nodemailer.createTransport(transportConfig);
+
+    // Verify SMTP connection on startup
+    this.transporter.verify((err) => {
+      if (err) {
+        this.logger.error(
+          { err, host: config.host, port: portNum },
+          'Brevo SMTP connection verification failed',
+        );
+      } else {
+        this.logger.info({ host: config.host, port: portNum }, 'Brevo SMTP connection verified successfully');
+      }
+    });
   }
 
   async sendEmail(payload: SendEmailPayload): Promise<SendEmailResult> {
@@ -71,18 +83,18 @@ export class NodemailerProvider implements IEmailProvider {
 
       const messageId = info.messageId || 'unknown';
       this.logger.info(
-        { messageId, recipient: payload.to, latencyMs: Date.now() - startTime },
-        'Email delivered successfully via Nodemailer SMTP',
+        { messageId, recipient: payload.to, subject: payload.subject, latencyMs: Date.now() - startTime },
+        'Email delivered successfully via Brevo SMTP (Nodemailer)',
       );
 
       return {
         id: messageId,
-        provider: 'nodemailer',
+        provider: 'brevo-smtp',
       };
     } catch (err) {
       this.logger.error(
         { err, recipient: payload.to, latencyMs: Date.now() - startTime },
-        'Failed to deliver email via Nodemailer SMTP',
+        'Failed to deliver email via Brevo SMTP',
       );
       throw err;
     }
