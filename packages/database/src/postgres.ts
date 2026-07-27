@@ -1,5 +1,8 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Logger } from 'pino';
@@ -48,6 +51,25 @@ export class PostgresConnection {
 
     this.db = drizzle(this.pool);
     return this.db;
+  }
+
+  async runMigrations(migrationsFolder?: string): Promise<void> {
+    if (!this.db) {
+      throw new Error('PostgreSQL not connected. Call connect() first.');
+    }
+    const resolvedPath = migrationsFolder || path.resolve(__dirname, '../drizzle');
+    if (fs.existsSync(resolvedPath)) {
+      this.logger.info({ migrationsFolder: resolvedPath }, 'Executing Drizzle database migrations...');
+      try {
+        await migrate(this.db, { migrationsFolder: resolvedPath });
+        this.logger.info('Drizzle database migrations executed successfully');
+      } catch (err) {
+        this.logger.error({ err }, 'Error executing Drizzle database migrations');
+        throw err;
+      }
+    } else {
+      this.logger.warn({ migrationsFolder: resolvedPath }, 'Migrations folder not found, skipping auto-migration');
+    }
   }
 
   getDb(): NodePgDatabase {

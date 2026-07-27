@@ -81,6 +81,13 @@ export async function buildApp(logger: any): Promise<any> {
   const db = await postgres.connect();
   const redisClient = await redis.connect();
 
+  // Execute Drizzle database schema auto-migrations
+  try {
+    await postgres.runMigrations();
+  } catch (err) {
+    logger.error({ err }, 'Failed to execute database migrations on startup');
+  }
+
   // Clean up on shutdown
   app.addHook('onClose', async () => {
     await postgres.disconnect();
@@ -142,10 +149,13 @@ export async function buildApp(logger: any): Promise<any> {
     redisClient,
   );
 
-  // Seed default roles and permissions
-  void rbacService.seedRolesAndPermissions().catch((err) => {
+  // Seed default roles and permissions after schema exists
+  try {
+    await rbacService.seedRolesAndPermissions();
+    logger.info('Default roles and permissions seeded successfully');
+  } catch (err) {
     logger.error({ err }, 'Failed to seed default roles and permissions');
-  });
+  }
 
   const emailVerificationService = new EmailVerificationService(
     userRepository,
