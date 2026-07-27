@@ -24,6 +24,7 @@ export class EmailService {
   private readonly transporter: nodemailer.Transporter;
   private readonly logger: Logger;
   private readonly from: string;
+  private readonly frontendUrl: string;
 
   constructor(
     config: {
@@ -33,11 +34,14 @@ export class EmailService {
       pass?: string;
       secure: boolean;
       from: string;
+      frontendUrl?: string;
     },
     logger: Logger,
   ) {
     this.logger = logger.child({ component: 'EmailService' });
     this.from = config.from;
+    const rawUrl = (config.frontendUrl || 'http://localhost:3000').split(',')[0] || 'http://localhost:3000';
+    this.frontendUrl = rawUrl.trim();
 
     const transportConfig: any = {
       host: config.host,
@@ -166,8 +170,7 @@ export class EmailService {
    * Convenience helper to send verification link.
    */
   async sendVerificationEmail(email: string, username: string, token: string): Promise<void> {
-    // Determine verification link (can be configured; defaults to typical gateway/client endpoint)
-    const verificationLink = `http://localhost:3000/verify-email?token=${token}`;
+    const verificationLink = `${this.frontendUrl}/verify-email?token=${token}`;
 
     await this.sendEmail({
       to: email,
@@ -185,7 +188,7 @@ export class EmailService {
    * Convenience helper to send password reset link.
    */
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
-    const resetLink = `http://localhost:3000/reset-password?token=${token}`;
+    const resetLink = `${this.frontendUrl}/reset-password?token=${token}`;
 
     await this.sendEmail({
       to: email,

@@ -119,6 +119,7 @@ export async function buildApp(logger: any): Promise<any> {
       pass: config.SMTP_PASS,
       secure: config.SMTP_SECURE,
       from: config.SMTP_FROM,
+      frontendUrl: config.CORS_ORIGIN,
     },
     logger,
   );
