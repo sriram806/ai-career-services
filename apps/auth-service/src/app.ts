@@ -120,6 +120,7 @@ export async function buildApp(logger: any): Promise<any> {
       secure: config.SMTP_SECURE,
       from: config.SMTP_FROM,
       frontendUrl: config.CORS_ORIGIN,
+      resendApiKey: config.RESEND_API_KEY,
     },
     logger,
   );

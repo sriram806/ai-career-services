@@ -26,6 +26,7 @@ export class EmailService {
   private readonly logger: Logger;
   private readonly from: string;
   private readonly frontendUrl: string;
+  private readonly resendApiKey?: string;
 
   constructor(
     config: {
@@ -36,16 +37,17 @@ export class EmailService {
       secure: boolean;
       from: string;
       frontendUrl?: string;
+      resendApiKey?: string;
     },
     logger: Logger,
   ) {
     this.logger = logger.child({ component: 'EmailService' });
     this.from = config.from;
+    this.resendApiKey = config.resendApiKey;
     const rawUrl = (config.frontendUrl || 'http://localhost:3000').split(',')[0] || 'http://localhost:3000';
     this.frontendUrl = rawUrl.trim();
 
     const portNum = Number(config.port) || 587;
-    // Strict RFC compliance: Port 465 = Implicit TLS (secure: true). Port 587 = STARTTLS (secure: false).
     const isSecure = portNum === 465;
 
     const transportConfig: any = {
@@ -75,14 +77,18 @@ export class EmailService {
 
     this.transporter = nodemailer.createTransport(transportConfig);
 
-    // Verify SMTP connection on startup asynchronously
-    this.transporter.verify((err) => {
-      if (err) {
-        this.logger.error({ err, host: config.host, port: portNum, secure: isSecure }, 'SMTP connection verification failed. Email delivery will retry on send.');
-      } else {
-        this.logger.info({ host: config.host, port: portNum }, 'SMTP connection verified successfully');
-      }
-    });
+    if (this.resendApiKey) {
+      this.logger.info('Resend HTTP API key detected; email service will use Resend HTTPS API (Port 443)');
+    } else {
+      // Verify SMTP connection on startup asynchronously
+      this.transporter.verify((err) => {
+        if (err) {
+          this.logger.error({ err, host: config.host, port: portNum, secure: isSecure }, 'SMTP connection verification failed. Email delivery will retry on send.');
+        } else {
+          this.logger.info({ host: config.host, port: portNum }, 'SMTP connection verified successfully');
+        }
+      });
+    }
   }
 
   /**
@@ -121,11 +127,38 @@ export class EmailService {
   }
 
   /**
-   * Sends an email using a specified template.
+   * Sends an email using a specified template via Resend HTTP API (if configured) or Nodemailer SMTP fallback.
    */
   async sendEmail(options: EmailOptions): Promise<void> {
     try {
       const html = this.loadTemplate(options.templateName, options.variables);
+
+      if (this.resendApiKey) {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: this.from,
+            to: [options.to],
+            subject: options.subject,
+            html,
+          }),
+        });
+
+        if (!response.ok) {
+          const errBody = await response.text();
+          throw new Error(`Resend API error (${response.status}): ${errBody}`);
+        }
+
+        this.logger.info(
+          { to: options.to, subject: options.subject, template: options.templateName, provider: 'Resend API' },
+          'Email sent successfully via Resend HTTPS API',
+        );
+        return;
+      }
 
       const mailOptions = {
         from: this.from,
@@ -136,7 +169,7 @@ export class EmailService {
 
       await this.transporter.sendMail(mailOptions);
       this.logger.info(
-        { to: options.to, subject: options.subject, template: options.templateName },
+        { to: options.to, subject: options.subject, template: options.templateName, provider: 'Nodemailer SMTP' },
         'Email sent successfully',
       );
     } catch (err) {
