@@ -47,6 +47,13 @@ export class EmailService {
       host: config.host,
       port: config.port,
       secure: config.secure,
+      family: 4, // Force IPv4 to bypass unreachable IPv6 routes on Render/cloud hosts
+      connectionTimeout: 10000,
+      socketTimeout: 10000,
+      greetingTimeout: 10000,
+      tls: {
+        rejectUnauthorized: false,
+      },
     };
 
     if (config.user && config.pass) {
@@ -58,10 +65,10 @@ export class EmailService {
 
     this.transporter = nodemailer.createTransport(transportConfig);
 
-    // Verify SMTP connection on startup
+    // Verify SMTP connection on startup asynchronously
     this.transporter.verify((err) => {
       if (err) {
-        this.logger.error({ err }, 'SMTP connection verification failed');
+        this.logger.error({ err }, 'SMTP connection verification failed. Email delivery may fail if credentials or host are invalid.');
       } else {
         this.logger.info('SMTP connection verified successfully');
       }
