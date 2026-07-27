@@ -20,47 +20,30 @@ export class NodemailerProvider implements IEmailProvider {
   ) {
     this.logger = logger.child({ component: 'NodemailerProvider' });
 
+    const host = config.host || 'smtp.gmail.com';
     const portNum = Number(config.port) || 587;
     const isSecure = portNum === 465 || String(config.secure) === 'true';
 
-    const isGmail = (config.host || '').toLowerCase().includes('smtp.gmail.com');
+    const transportOptions: SMTPTransport.Options = {
+      host,
+      port: portNum,
+      secure: isSecure,
+      requireTLS: !isSecure,
+      connectionTimeout: 15000,
+      socketTimeout: 15000,
+      greetingTimeout: 15000,
+      dnsTimeout: 10000,
+      tls: {
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1.2',
+      },
+    };
 
-    let transportOptions: SMTPTransport.Options;
-
-    if (isGmail) {
-      // Use nodemailer's Gmail service preset — handles TLS, ports, and auth correctly
-      transportOptions = {
-        service: 'gmail',
-        auth: {
-          user: config.user,
-          pass: config.pass, // Must be a Google App Password, not your regular Gmail password
-        },
-        connectionTimeout: 15000,
-        socketTimeout: 15000,
-        greetingTimeout: 15000,
+    if (config.user && config.pass) {
+      transportOptions.auth = {
+        user: config.user,
+        pass: config.pass,
       };
-    } else {
-      transportOptions = {
-        host: config.host,
-        port: portNum,
-        secure: isSecure,
-        requireTLS: !isSecure,
-        connectionTimeout: 15000,
-        socketTimeout: 15000,
-        greetingTimeout: 15000,
-        dnsTimeout: 10000,
-        tls: {
-          rejectUnauthorized: false,
-          minVersion: 'TLSv1.2',
-        },
-      };
-
-      if (config.user && config.pass) {
-        transportOptions.auth = {
-          user: config.user,
-          pass: config.pass,
-        };
-      }
     }
 
     this.transporter = nodemailer.createTransport(transportOptions);
@@ -69,18 +52,12 @@ export class NodemailerProvider implements IEmailProvider {
     this.transporter.verify((err) => {
       if (err) {
         // eslint-disable-next-line no-console
-        console.error('CRITICAL: Gmail SMTP Connection Verification Failed:', err);
-        this.logger.error(
-          { err, host: config.host, port: portNum },
-          'Gmail SMTP connection verification failed',
-        );
+        console.error('CRITICAL: SMTP Connection Verification Failed:', err);
+        this.logger.error({ err, host, port: portNum }, 'SMTP connection verification failed');
       } else {
         // eslint-disable-next-line no-console
-        console.log(`SUCCESS: Gmail SMTP connection verified successfully`);
-        this.logger.info(
-          { host: config.host, port: portNum },
-          'Gmail SMTP connection verified successfully',
-        );
+        console.log(`SUCCESS: SMTP connection verified successfully (${host}:${portNum})`);
+        this.logger.info({ host, port: portNum }, 'SMTP connection verified successfully');
       }
     });
   }
@@ -110,19 +87,19 @@ export class NodemailerProvider implements IEmailProvider {
           subject: payload.subject,
           latencyMs: Date.now() - startTime,
         },
-        'Email delivered successfully via Gmail SMTP (Nodemailer)',
+        'Email delivered successfully via SMTP (Nodemailer)',
       );
 
       return {
         id: messageId,
-        provider: 'gmail-smtp',
+        provider: 'nodemailer-smtp',
       };
     } catch (err: unknown) {
       // eslint-disable-next-line no-console
-      console.error(`CRITICAL: Failed to deliver email to ${payload.to} via Gmail SMTP:`, err);
+      console.error(`CRITICAL: Failed to deliver email to ${payload.to} via SMTP:`, err);
       this.logger.error(
         { err: err as Error, recipient: payload.to, latencyMs: Date.now() - startTime },
-        'Failed to deliver email via Gmail SMTP',
+        'Failed to deliver email via SMTP',
       );
       throw err;
     }
