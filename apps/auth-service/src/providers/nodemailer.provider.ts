@@ -54,11 +54,15 @@ export class NodemailerProvider implements IEmailProvider {
     // Verify SMTP connection on startup
     this.transporter.verify((err) => {
       if (err) {
+        // eslint-disable-next-line no-console
+        console.error('CRITICAL: Brevo SMTP Connection Verification Failed:', err);
         this.logger.error(
           { err, host: config.host, port: portNum },
           'Brevo SMTP connection verification failed',
         );
       } else {
+        // eslint-disable-next-line no-console
+        console.log(`SUCCESS: Brevo SMTP connection verified successfully to ${config.host}:${portNum}`);
         this.logger.info({ host: config.host, port: portNum }, 'Brevo SMTP connection verified successfully');
       }
     });
@@ -92,6 +96,8 @@ export class NodemailerProvider implements IEmailProvider {
         provider: 'brevo-smtp',
       };
     } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`CRITICAL: Failed to deliver email to ${payload.to} via Brevo SMTP:`, err);
       this.logger.error(
         { err, recipient: payload.to, latencyMs: Date.now() - startTime },
         'Failed to deliver email via Brevo SMTP',
