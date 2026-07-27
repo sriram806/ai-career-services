@@ -1,5 +1,3 @@
-import * as dns from 'node:dns';
-
 import * as nodemailer from 'nodemailer';
 
 import type { IEmailProvider, SendEmailPayload, SendEmailResult } from './email.provider.interface';
@@ -54,13 +52,6 @@ export class NodemailerProvider implements IEmailProvider {
         tls: {
           rejectUnauthorized: false,
           minVersion: 'TLSv1.2',
-        },
-        lookup: (
-          hostname: string,
-          _options: dns.LookupOneOptions,
-          callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
-        ) => {
-          dns.lookup(hostname, { family: 4 }, callback);
         },
       };
 
