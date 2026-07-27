@@ -51,5 +51,47 @@ export const healthRoutes: FastifyPluginCallback = (fastify: FastifyInstance, _o
     },
   );
 
+  fastify.get(
+    '/health/email',
+    {
+      schema: { description: 'Email service health & SMTP diagnostics', tags: ['health'] },
+    },
+    async (_request, reply) => {
+      const dns = await import('node:dns/promises');
+      let ipv4Addresses: string[] = [];
+      let ipv6Addresses: string[] = [];
+      let dnsError: string | null = null;
+
+      try {
+        ipv4Addresses = await dns.resolve4(process.env.SMTP_HOST || 'smtp-relay.brevo.com');
+      } catch (err: any) {
+        dnsError = err?.message || String(err);
+      }
+
+      try {
+        ipv6Addresses = await dns.resolve6(process.env.SMTP_HOST || 'smtp-relay.brevo.com');
+      } catch (err: any) {
+        // Ignore IPv6 lookup errors
+      }
+
+      return reply.status(200).send({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        smtp: {
+          host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+          port: Number(process.env.SMTP_PORT) || 587,
+          secure: process.env.SMTP_SECURE === 'true',
+          from: process.env.SMTP_FROM || 'AI Career OS <boddusriram1234@gmail.com>',
+          userConfigured: Boolean(process.env.SMTP_USER),
+        },
+        dns: {
+          ipv4: ipv4Addresses,
+          ipv6: ipv6Addresses,
+          error: dnsError,
+        },
+      });
+    },
+  );
+
   done();
 };
