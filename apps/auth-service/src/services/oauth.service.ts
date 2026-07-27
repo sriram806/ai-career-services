@@ -400,6 +400,11 @@ export class OAuthService {
           clientId: config.LINKEDIN_CLIENT_ID,
           clientSecret: config.LINKEDIN_CLIENT_SECRET,
         };
+      case 'microsoft':
+        return {
+          clientId: config.MICROSOFT_CLIENT_ID,
+          clientSecret: config.MICROSOFT_CLIENT_SECRET,
+        };
       default:
         return { clientId: 'placeholder_client_id' };
     }

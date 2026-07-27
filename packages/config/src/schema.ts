@@ -66,6 +66,10 @@ export const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().default('mock_google_client_id'),
   GOOGLE_CLIENT_SECRET: z.string().default('mock_google_client_secret'),
 
+  // ─── Microsoft OAuth ──────────────────────────────
+  MICROSOFT_CLIENT_ID: z.string().default('mock_microsoft_client_id'),
+  MICROSOFT_CLIENT_SECRET: z.string().default('mock_microsoft_client_secret'),
+
   // ─── LinkedIn OAuth ───────────────────────────────
   LINKEDIN_CLIENT_ID: z.string().default('mock_linkedin_client_id'),
   LINKEDIN_CLIENT_SECRET: z.string().default('mock_linkedin_client_secret'),
