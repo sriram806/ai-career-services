@@ -102,10 +102,13 @@ export class PasswordResetService {
       expiresAt,
     });
 
-    // Send email reset link asynchronously
-    this.emailService.sendPasswordResetEmail(normalizedEmail, plainToken).catch((err) => {
+    // Send email reset link synchronously so errors bubble up to API response
+    try {
+      await this.emailService.sendPasswordResetEmail(normalizedEmail, plainToken);
+    } catch (err: any) {
       console.error(`Failed to send password reset email to ${normalizedEmail}:`, err);
-    });
+      throw new Error(`Failed to send password reset email: ${err?.message || err}`);
+    }
 
     // 6. Set rate limit state
     await this.redisClient.set(cooldownKey, '1', 'EX', this.cooldownSeconds);

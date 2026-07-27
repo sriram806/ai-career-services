@@ -227,8 +227,7 @@ export class AuthController {
       createSuccessResponse(
         {
           message: 'If the email matches an account, a password reset link has been sent.',
-          // Return token in non-production for testing
-          resetToken: process.env.NODE_ENV !== 'production' ? resetToken : undefined,
+          resetToken,
         },
         request.id,
       ),
