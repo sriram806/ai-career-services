@@ -89,13 +89,10 @@ export function gatewayErrorHandler(
   }
 
   // 4. Default: Handle uncaught internal/external errors
-  // Log the real error with stack trace for observability
-  request.log.error({ err: error, requestId }, 'Unhandled Gateway error');
-
   // Determine error code and status
   let code = ErrorCode.INTERNAL_SERVER_ERROR;
   let status = 500;
-  let message = 'An unexpected error occurred';
+  let message = error.message || 'An unexpected error occurred';
 
   // Mask downstream connection errors
   if ('code' in error) {
@@ -109,7 +106,7 @@ export function gatewayErrorHandler(
     ) {
       code = ErrorCode.EXTERNAL_SERVICE_ERROR;
       status = 502;
-      message = 'Failed to communicate with upstream service';
+      message = error.message || 'Failed to communicate with upstream service';
     }
   }
 

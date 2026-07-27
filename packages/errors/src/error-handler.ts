@@ -64,11 +64,10 @@ export function errorHandler(
     success: false,
     error: {
       code: ErrorCode.INTERNAL_SERVER_ERROR,
-      message:
-        process.env['NODE_ENV'] === 'production' ? 'An unexpected error occurred' : error.message,
+      message: error.message || 'An unexpected error occurred',
       requestId,
       timestamp: new Date().toISOString(),
-      ...(process.env['NODE_ENV'] === 'development' && { stack: error.stack }),
+      stack: process.env['NODE_ENV'] === 'development' ? error.stack : undefined,
     },
   });
 }
