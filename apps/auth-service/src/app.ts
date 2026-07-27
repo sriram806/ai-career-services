@@ -27,6 +27,8 @@ import { UserRepository } from './repositories/user.repository';
 import { TrustedDeviceRepository } from './repositories/trusted-device.repository';
 import { RbacRepository } from './repositories/rbac.repository';
 
+import { ResendProvider } from './providers';
+
 // ─── Services ─────────────────────────────────────
 import { registerAuthRoutes } from './routes/auth';
 import { healthRoutes } from './routes/health';
@@ -111,16 +113,14 @@ export async function buildApp(logger: any): Promise<any> {
   const otpRepository = new OtpRepository(db);
 
   // ─── Service Layer ──────────────────────────────
+  const resendApiKey = config.RESEND_API_KEY || process.env['RESEND_API_KEY'] || 're_placeholder_key';
+  const emailProvider = new ResendProvider(resendApiKey, logger);
+
   const emailService = new EmailService(
+    emailProvider,
     {
-      host: config.SMTP_HOST,
-      port: config.SMTP_PORT,
-      user: config.SMTP_USER,
-      pass: config.SMTP_PASS,
-      secure: config.SMTP_SECURE,
       from: config.SMTP_FROM,
       frontendUrl: config.CORS_ORIGIN,
-      resendApiKey: config.RESEND_API_KEY,
     },
     logger,
   );

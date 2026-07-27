@@ -1,10 +1,8 @@
-import * as dns from 'node:dns';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import * as nodemailer from 'nodemailer';
-
 import type { Logger } from 'pino';
+import type { IEmailProvider, SendEmailResult } from '../providers/email.provider.interface';
 
 export interface EmailOptions {
   to: string;
@@ -22,73 +20,24 @@ export interface EmailWithAttachmentOptions extends EmailOptions {
 }
 
 export class EmailService {
-  private readonly transporter: nodemailer.Transporter;
+  private readonly provider: IEmailProvider;
   private readonly logger: Logger;
   private readonly from: string;
   private readonly frontendUrl: string;
-  private readonly resendApiKey?: string;
 
   constructor(
+    provider: IEmailProvider,
     config: {
-      host: string;
-      port: number;
-      user?: string;
-      pass?: string;
-      secure: boolean;
       from: string;
       frontendUrl?: string;
-      resendApiKey?: string;
     },
     logger: Logger,
   ) {
+    this.provider = provider;
     this.logger = logger.child({ component: 'EmailService' });
     this.from = config.from;
-    this.resendApiKey = config.resendApiKey;
     const rawUrl = (config.frontendUrl || 'http://localhost:3000').split(',')[0] || 'http://localhost:3000';
     this.frontendUrl = rawUrl.trim();
-
-    const portNum = Number(config.port) || 587;
-    const isSecure = portNum === 465;
-
-    const transportConfig: any = {
-      host: config.host,
-      port: portNum,
-      secure: isSecure,
-      requireTLS: !isSecure,
-      connectionTimeout: 15000,
-      socketTimeout: 15000,
-      greetingTimeout: 15000,
-      dnsTimeout: 10000,
-      tls: {
-        rejectUnauthorized: false,
-        minVersion: 'TLSv1.2',
-      },
-      lookup: (hostname: string, _options: any, callback: any) => {
-        dns.lookup(hostname, { family: 4 }, callback);
-      },
-    };
-
-    if (config.user && config.pass) {
-      transportConfig.auth = {
-        user: config.user,
-        pass: config.pass,
-      };
-    }
-
-    this.transporter = nodemailer.createTransport(transportConfig);
-
-    if (this.resendApiKey) {
-      this.logger.info('Resend HTTP API key detected; email service will use Resend HTTPS API (Port 443)');
-    } else {
-      // Verify SMTP connection on startup asynchronously
-      this.transporter.verify((err) => {
-        if (err) {
-          this.logger.error({ err, host: config.host, port: portNum, secure: isSecure }, 'SMTP connection verification failed. Email delivery will retry on send.');
-        } else {
-          this.logger.info({ host: config.host, port: portNum }, 'SMTP connection verified successfully');
-        }
-      });
-    }
   }
 
   /**
@@ -127,102 +76,51 @@ export class EmailService {
   }
 
   /**
-   * Sends an email using a specified template via Resend HTTP API (if configured) or Nodemailer SMTP fallback.
+   * Sends an email using a specified template via the configured IEmailProvider.
    */
-  async sendEmail(options: EmailOptions): Promise<void> {
-    try {
-      const html = this.loadTemplate(options.templateName, options.variables);
+  async sendEmail(options: EmailOptions): Promise<SendEmailResult> {
+    const html = this.loadTemplate(options.templateName, options.variables);
+    this.logger.info(
+      { to: options.to, subject: options.subject, template: options.templateName },
+      'Dispatching email via email provider...',
+    );
 
-      if (this.resendApiKey) {
-        const response = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${this.resendApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: this.from,
-            to: [options.to],
-            subject: options.subject,
-            html,
-          }),
-        });
-
-        if (!response.ok) {
-          const errBody = await response.text();
-          throw new Error(`Resend API error (${response.status}): ${errBody}`);
-        }
-
-        this.logger.info(
-          { to: options.to, subject: options.subject, template: options.templateName, provider: 'Resend API' },
-          'Email sent successfully via Resend HTTPS API',
-        );
-        return;
-      }
-
-      const mailOptions = {
-        from: this.from,
-        to: options.to,
-        subject: options.subject,
-        html,
-      };
-
-      await this.transporter.sendMail(mailOptions);
-      this.logger.info(
-        { to: options.to, subject: options.subject, template: options.templateName, provider: 'Nodemailer SMTP' },
-        'Email sent successfully',
-      );
-    } catch (err) {
-      this.logger.error(
-        { err, to: options.to, subject: options.subject, template: options.templateName },
-        'Failed to send email',
-      );
-      throw err;
-    }
+    return this.provider.sendEmail({
+      from: this.from,
+      to: options.to,
+      subject: options.subject,
+      html,
+    });
   }
 
   /**
    * Sends an email with a file attachment using a specified template.
    */
-  async sendEmailWithAttachment(options: EmailWithAttachmentOptions): Promise<void> {
-    try {
-      const html = this.loadTemplate(options.templateName, options.variables);
+  async sendEmailWithAttachment(options: EmailWithAttachmentOptions): Promise<SendEmailResult> {
+    const html = this.loadTemplate(options.templateName, options.variables);
 
-      const mailOptions = {
-        from: this.from,
-        to: options.to,
-        subject: options.subject,
-        html,
-        attachments: [
-          {
-            filename: options.attachment.filename,
-            content: options.attachment.content,
-            contentType: options.attachment.contentType,
-          },
-        ],
-      };
-
-      await this.transporter.sendMail(mailOptions);
-      this.logger.info(
-        { to: options.to, subject: options.subject, template: options.templateName, attachment: options.attachment.filename },
-        'Email with attachment sent successfully',
-      );
-    } catch (err) {
-      this.logger.error(
-        { err, to: options.to, subject: options.subject, template: options.templateName },
-        'Failed to send email with attachment',
-      );
-      throw err;
-    }
+    return this.provider.sendEmail({
+      from: this.from,
+      to: options.to,
+      subject: options.subject,
+      html,
+      attachments: [
+        {
+          filename: options.attachment.filename,
+          content: options.attachment.content,
+          contentType: options.attachment.contentType,
+        },
+      ],
+    });
   }
 
   /**
    * Convenience helper to send verification link.
    */
-  async sendVerificationEmail(email: string, username: string, token: string): Promise<void> {
+  async sendVerificationEmail(email: string, username: string, token: string): Promise<SendEmailResult> {
     const verificationLink = `${this.frontendUrl}/verify-email?token=${token}`;
 
-    await this.sendEmail({
+    return this.sendEmail({
       to: email,
       subject: 'Verify Your Email Address - AI Career OS',
       templateName: 'email-verification.html',
@@ -237,10 +135,10 @@ export class EmailService {
   /**
    * Convenience helper to send password reset link.
    */
-  async sendPasswordResetEmail(email: string, token: string): Promise<void> {
+  async sendPasswordResetEmail(email: string, token: string): Promise<SendEmailResult> {
     const resetLink = `${this.frontendUrl}/reset-password?token=${token}`;
 
-    await this.sendEmail({
+    return this.sendEmail({
       to: email,
       subject: 'Reset Your Password - AI Career OS',
       templateName: 'password-reset.html',
@@ -254,10 +152,10 @@ export class EmailService {
   /**
    * Convenience helper to send OTP.
    */
-  async sendOtpEmail(email: string, purpose: string, code: string): Promise<void> {
+  async sendOtpEmail(email: string, purpose: string, code: string): Promise<SendEmailResult> {
     const formattedPurpose = purpose.replace(/_/g, ' ').toUpperCase();
 
-    await this.sendEmail({
+    return this.sendEmail({
       to: email,
       subject: `Your Verification Code: ${code} - AI Career OS`,
       templateName: 'otp.html',
