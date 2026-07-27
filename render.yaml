@@ -1,0 +1,109 @@
+# ============================================================
+# AI Career OS — Render Infrastructure as Code (Blueprint)
+# ============================================================
+# Automatically deploys PostgreSQL, Redis, Auth Service, and Gateway.
+# ============================================================
+
+version: "1"
+
+databases:
+  # ─── Managed PostgreSQL Database ───────────────────────────
+  - name: ai-career-db
+    databaseName: ai_career_os
+    user: ai_career_user
+    plan: free
+    region: singapore
+
+services:
+  # ─── Managed Redis Store ───────────────────────────────────
+  - type: redis
+    name: ai-career-redis
+    ipAllowList: [] # Only internal access
+    plan: free
+    region: singapore
+
+  # ─── Auth & Identity Microservice (Private Web Service) ───
+  - type: pserv
+    name: ai-career-auth-service
+    env: node
+    rootDir: services
+    buildCommand: npm ci && npx turbo run build --filter=@ai-career-os/auth-service...
+    startCommand: node apps/auth-service/dist/server.js
+    healthCheckPath: /health
+    plan: free
+    region: singapore
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: ai-career-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: ai-career-db
+          property: port
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: ai-career-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: ai-career-db
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: ai-career-db
+          property: database
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: ai-career-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: ai-career-redis
+          property: port
+      - key: REDIS_PASSWORD
+        fromService:
+          type: redis
+          name: ai-career-redis
+          property: password
+
+  # ─── API Gateway (Public Web Service) ──────────────────────
+  - type: web
+    name: ai-career-gateway
+    env: node
+    rootDir: services
+    buildCommand: npm ci && npx turbo run build --filter=@ai-career-os/gateway...
+    startCommand: node apps/gateway/dist/server.js
+    healthCheckPath: /health
+    plan: free
+    region: singapore
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        value: https://ai-os-nova.vercel.app
+      - key: AUTH_SERVICE_URL
+        value: http://ai-career-auth-service:3001
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: ai-career-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: ai-career-redis
+          property: port
+      - key: REDIS_PASSWORD
+        fromService:
+          type: redis
+          name: ai-career-redis
+          property: password
