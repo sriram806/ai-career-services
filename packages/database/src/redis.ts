@@ -8,8 +8,9 @@ export class RedisConnection {
 
   constructor(
     private readonly config: {
-      host: string;
-      port: number;
+      url?: string;
+      host?: string;
+      port?: number;
       password?: string;
       db?: number;
       maxRetriesPerRequest?: number | null;
@@ -24,10 +25,7 @@ export class RedisConnection {
       return this.client;
     }
 
-    this.client = new Redis({
-      host: this.config.host,
-      port: this.config.port,
-      password: this.config.password,
+    const options = {
       db: this.config.db ?? 0,
       maxRetriesPerRequest: this.config.maxRetriesPerRequest !== undefined ? this.config.maxRetriesPerRequest : 3,
       retryStrategy(times: number) {
@@ -36,7 +34,18 @@ export class RedisConnection {
       },
       lazyConnect: false,
       enableReadyCheck: true,
-    });
+    };
+
+    if (this.config.url) {
+      this.client = new Redis(this.config.url, options);
+    } else {
+      this.client = new Redis({
+        host: this.config.host || 'localhost',
+        port: this.config.port || 6379,
+        password: this.config.password,
+        ...options,
+      });
+    }
 
     this.client.on('connect', () => {
       this.logger.info('Redis connected successfully');

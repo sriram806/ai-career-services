@@ -21,6 +21,7 @@ export const redisPlugin = fp(
 
     const redisConnection = new RedisConnection(
       {
+        url: config.REDIS_URL,
         host: config.REDIS_HOST,
         port: config.REDIS_PORT,
         password: config.REDIS_PASSWORD,

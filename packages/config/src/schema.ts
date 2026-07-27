@@ -27,6 +27,7 @@ export const envSchema = z.object({
   MONGO_DB: z.string().min(1).default('ai_career_os'),
 
   // ─── Redis ────────────────────────────────────────
+  REDIS_URL: z.string().optional(),
   REDIS_HOST: z.string().min(1).default('localhost'),
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
   REDIS_PASSWORD: z.string().optional(),

@@ -73,6 +73,11 @@ services:
           type: redis
           name: ai-career-redis
           property: password
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ai-career-redis
+          property: connectionString
 
   # ─── API Gateway (Public Web Service) ──────────────────────
   - type: web
@@ -107,3 +112,8 @@ services:
           type: redis
           name: ai-career-redis
           property: password
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ai-career-redis
+          property: connectionString
