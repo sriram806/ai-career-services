@@ -1,4 +1,5 @@
 import * as dns from 'node:dns';
+import { ErrorFactory } from '@ai-career-os/errors';
 import * as nodemailer from 'nodemailer';
 
 import type { IEmailProvider, SendEmailPayload, SendEmailResult } from './email.provider.interface';
@@ -150,7 +151,7 @@ export class NodemailerProvider implements IEmailProvider {
         { err: err as Error, recipient: payload.to, latencyMs: Date.now() - startTime },
         'Failed to deliver email via SMTP',
       );
-      throw err;
+      throw ErrorFactory.externalServiceError('nodemailer-smtp', err as Error);
     }
   }
 }
