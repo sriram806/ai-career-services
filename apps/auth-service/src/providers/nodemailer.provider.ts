@@ -1,4 +1,5 @@
 import * as dns from 'node:dns';
+import * as net from 'node:net';
 import { ErrorFactory } from '@ai-career-os/errors';
 import * as nodemailer from 'nodemailer';
 
@@ -29,23 +30,37 @@ export class NodemailerProvider implements IEmailProvider {
     this.port = Number(config.port) || 465;
     const isSecure = this.port === 465 || String(config.secure) === 'true';
 
-    // Custom IPv4 lookup resolver to prevent ENETUNREACH errors on cloud host environments (e.g. Render)
-    // where IPv6 addresses (2404:6800:...) are returned by DNS getaddrinfo but lack egress routing.
-    // CRITICAL: We DO NOT pass `service: 'gmail'` in transportOptions because Nodemailer's built-in service
-    // preset engine overrides and strips custom `lookup` and `family: 4` socket properties!
+    // Enterprise Egress DNS Fix: Direct A-record resolution via c-ares (dns.promises.resolve4)
+    // completely bypasses glibc getaddrinfo IPv6 precedence on Linux containers (e.g. Render).
     const customIpv4Lookup = (
       hostname: string,
-      options: any,
+      _options: any,
       callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
     ) => {
-      const opts = typeof options === 'object' && options !== null ? { ...options, family: 4 } : { family: 4 };
-      dns.lookup(hostname, opts, (err, address, family) => {
-        if (err) {
-          callback(err, '', 4);
-        } else {
-          callback(null, address as string, (family as number) || 4);
-        }
-      });
+      if (net.isIP(hostname)) {
+        callback(null, hostname, net.isIPv6(hostname) ? 6 : 4);
+        return;
+      }
+
+      dns.promises
+        .resolve4(hostname)
+        .then((addresses) => {
+          if (addresses && addresses.length > 0) {
+            const selectedIp = addresses[Math.floor(Math.random() * addresses.length)] || addresses[0] || '';
+            callback(null, selectedIp, 4);
+          } else {
+            dns.lookup(hostname, { family: 4 }, (err, address) => {
+              callback(err, address || '', 4);
+            });
+          }
+        })
+        .catch((err: unknown) => {
+          dns.lookup(hostname, { family: 4 }, (fallbackErr, address) => {
+            const finalErr = (fallbackErr || err) as NodeJS.ErrnoException | null;
+            const finalAddress = address || '';
+            callback(finalErr, finalAddress, 4);
+          });
+        });
     };
 
     const transportOptions: SMTPPool.Options & { family?: number; lookup?: any } = {
