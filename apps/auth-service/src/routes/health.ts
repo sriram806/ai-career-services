@@ -1,3 +1,4 @@
+import * as net from 'node:net';
 import { CONSTANTS } from '@ai-career-os/common';
 
 import type { ServiceStatus } from '@ai-career-os/types';
@@ -58,36 +59,106 @@ export const healthRoutes: FastifyPluginCallback = (fastify: FastifyInstance, _o
     },
     async (_request, reply) => {
       const dns = await import('node:dns/promises');
+      const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+      const port = Number(process.env.SMTP_PORT) || 465;
+      const isSecure = port === 465 || process.env.SMTP_SECURE === 'true';
+
       let ipv4Addresses: string[] = [];
       let ipv6Addresses: string[] = [];
       let dnsError: string | null = null;
+      let tcpSuccess = false;
+      let tcpLatencyMs = -1;
+      let tcpError: string | null = null;
 
+      // 1. DNS Resolution
+      const dnsStartTime = Date.now();
       try {
-        ipv4Addresses = await dns.resolve4(process.env.SMTP_HOST || 'smtp-relay.brevo.com');
+        ipv4Addresses = await dns.resolve4(host);
       } catch (err: any) {
         dnsError = err?.message || String(err);
       }
 
       try {
-        ipv6Addresses = await dns.resolve6(process.env.SMTP_HOST || 'smtp-relay.brevo.com');
+        ipv6Addresses = await dns.resolve6(host);
       } catch (err: any) {
-        // Ignore IPv6 lookup errors
+        // Log IPv6 resolution result or fallback silently
+      }
+      const dnsLatencyMs = Date.now() - dnsStartTime;
+
+      // 2. TCP Socket Connectivity Test (Forced IPv4)
+      if (ipv4Addresses.length > 0) {
+        const tcpStart = Date.now();
+        await new Promise<void>((resolve) => {
+          const socket = net.connect(
+            {
+              host: ipv4Addresses[0],
+              port,
+              family: 4,
+              timeout: 5000,
+            },
+            () => {
+              tcpSuccess = true;
+              tcpLatencyMs = Date.now() - tcpStart;
+              socket.destroy();
+              resolve();
+            },
+          );
+
+          socket.on('error', (err) => {
+            tcpError = err.message;
+            socket.destroy();
+            resolve();
+          });
+
+          socket.on('timeout', () => {
+            tcpError = 'TCP Connection Timeout (5000ms)';
+            socket.destroy();
+            resolve();
+          });
+        });
+      } else {
+        tcpError = 'Skipped TCP test due to IPv4 DNS resolution failure';
       }
 
-      return reply.status(200).send({
-        status: 'healthy',
+      // 3. SMTP Transporter Verification
+      let smtpAuthVerified = false;
+      let smtpAuthError: string | null = null;
+      const emailProvider = (fastify as any).emailProvider;
+
+      if (emailProvider && typeof emailProvider.verifyConnection === 'function') {
+        const verifyResult = await emailProvider.verifyConnection();
+        smtpAuthVerified = verifyResult.success;
+        smtpAuthError = verifyResult.error ?? null;
+      }
+
+      const overallStatus = tcpSuccess && (smtpAuthVerified || !process.env.SMTP_USER) ? 'healthy' : 'unhealthy';
+      const statusCode = overallStatus === 'healthy' ? 200 : 503;
+
+      return reply.status(statusCode).send({
+        status: overallStatus,
         timestamp: new Date().toISOString(),
         smtp: {
-          host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-          port: Number(process.env.SMTP_PORT) || 587,
-          secure: process.env.SMTP_SECURE === 'true',
+          host,
+          port,
+          secure: isSecure,
           from: process.env.SMTP_FROM || 'AI Career OS <boddusriram1234@gmail.com>',
           userConfigured: Boolean(process.env.SMTP_USER),
+          authVerified: smtpAuthVerified,
+          authError: smtpAuthError,
         },
         dns: {
+          host,
           ipv4: ipv4Addresses,
           ipv6: ipv6Addresses,
+          latencyMs: dnsLatencyMs,
           error: dnsError,
+        },
+        tcp: {
+          connected: tcpSuccess,
+          targetIp: ipv4Addresses[0] ?? null,
+          port,
+          latencyMs: tcpLatencyMs,
+          error: tcpError,
         },
       });
     },

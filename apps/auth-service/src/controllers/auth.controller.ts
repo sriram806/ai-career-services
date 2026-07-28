@@ -4,24 +4,33 @@ import { ErrorFactory } from '@ai-career-os/errors';
 import { validate } from '@ai-career-os/validation';
 
 import {
-  registerSchema, loginSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema,
-  verifyEmailSchema, resendVerificationSchema, mfaEnableSchema, mfaVerifySchema, mfaDisableSchema,
-  oauthInitiateSchema, oauthUnlinkSchema,
+  registerSchema,
+  loginSchema,
+  changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
+  mfaEnableSchema,
+  mfaVerifySchema,
+  mfaDisableSchema,
+  oauthInitiateSchema,
+  oauthUnlinkSchema,
 } from '../validators/auth.validator';
 
 import type { AuditRepository } from '../repositories/audit.repository';
 import type { SessionRepository } from '../repositories/session.repository';
 import type { UserRepository } from '../repositories/user.repository';
 import type { AuthService } from '../services/auth.service';
+import type { DataExportService } from '../services/data-export.service';
 import type { EmailVerificationService } from '../services/email-verification.service';
 import type { MfaService } from '../services/mfa.service';
 import type { OAuthService } from '../services/oauth.service';
-import type { PasswordResetService } from '../services/password-reset.service';
-import type { DataExportService } from '../services/data-export.service';
 import type { OtpService } from '../services/otp.service';
+import type { PasswordResetService } from '../services/password-reset.service';
+import type { RbacService } from '../services/rbac.service';
 import type { SessionService } from '../services/session.service';
 import type { TrustedDeviceService } from '../services/trusted-device.service';
-import type { RbacService } from '../services/rbac.service';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 
 export class AuthController {
@@ -40,7 +49,7 @@ export class AuthController {
     private readonly auditRepository: AuditRepository,
     private readonly sessionRepository: SessionRepository,
     private readonly userRepository: UserRepository,
-  ) { }
+  ) {}
 
   // ─── Helper: extract request context ─────────────
   private getContext(request: FastifyRequest) {
@@ -84,7 +93,7 @@ export class AuthController {
     return request.cookies['refreshToken'] || (request.body as any)?.refreshToken || null;
   }
 
-  // POST  -> /auth/register 
+  // POST  -> /auth/register
   async register(request: FastifyRequest, reply: FastifyReply) {
     const data = validate(registerSchema, request.body);
     const ctx = this.getContext(request);
@@ -213,7 +222,12 @@ export class AuthController {
 
     return reply
       .status(200)
-      .send(createSuccessResponse({ accessToken: result.accessToken, refreshToken: result.refreshToken }, request.id));
+      .send(
+        createSuccessResponse(
+          { accessToken: result.accessToken, refreshToken: result.refreshToken },
+          request.id,
+        ),
+      );
   }
   // POST -> /auth/forgot-password
 
@@ -229,7 +243,9 @@ export class AuthController {
       if (!user) {
         throw ErrorFactory.notFound(`No account found with email address: ${data.email}`);
       }
-      throw ErrorFactory.badRequest('A password reset link was sent recently. Please wait 60 seconds before requesting another.');
+      throw ErrorFactory.badRequest(
+        'A password reset link was sent recently. Please wait 60 seconds before requesting another.',
+      );
     }
 
     return reply.status(200).send(
@@ -499,10 +515,7 @@ export class AuthController {
       return reply
         .status(200)
         .send(
-          createSuccessResponse(
-            { message: 'MFA enabled successfully', recoveryCodes },
-            request.id,
-          ),
+          createSuccessResponse({ message: 'MFA enabled successfully', recoveryCodes }, request.id),
         );
     }
 
@@ -636,7 +649,9 @@ export class AuthController {
 
     return reply.status(200).send(
       createSuccessResponse(
-        { message: 'A 6-digit verification code has been sent to your registered email address.' },
+        {
+          message: 'A 6-digit verification code has been sent to your registered email address.',
+        },
         request.id,
       ),
     );
@@ -751,9 +766,15 @@ export class AuthController {
       ...ctx,
     });
 
-    return reply
-      .status(200)
-      .send(createSuccessResponse({ message: 'Account scheduled for deletion. You have 15 days to restore your account before permanent deletion.' }, request.id));
+    return reply.status(200).send(
+      createSuccessResponse(
+        {
+          message:
+            'Account scheduled for deletion. You have 15 days to restore your account before permanent deletion.',
+        },
+        request.id,
+      ),
+    );
   }
 
   async restoreAccount(request: FastifyRequest, reply: FastifyReply) {
@@ -794,7 +815,8 @@ export class AuthController {
     return reply.status(200).send(
       createSuccessResponse(
         {
-          message: "Data export request received. We'll email you a secure download link within 24 hours.",
+          message:
+            "Data export request received. We'll email you a secure download link within 24 hours.",
         },
         request.id,
       ),

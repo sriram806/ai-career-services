@@ -22,7 +22,10 @@ import type { Redis } from 'ioredis';
 export interface AuthResponse {
   accessToken?: string;
   refreshToken?: string;
-  user?: Omit<DbUser, 'deletedAt' | 'failedLoginAttempts' | 'lockUntil' | 'lastFailedLogin' | 'fullName'> & {
+  user?: Omit<
+    DbUser,
+    'deletedAt' | 'failedLoginAttempts' | 'lockUntil' | 'lastFailedLogin' | 'fullName'
+  > & {
     name: string | null;
     roles?: string[];
     permissions?: string[];
@@ -93,9 +96,9 @@ export class AuthService {
     private readonly mfaRepository: MfaRepository,
     public readonly redisClient: Redis,
     private readonly otpService?: OtpService,
-  ) { }
+  ) {}
 
-  // REGISTRATION 
+  // REGISTRATION
   async register(
     data: {
       email: string;
@@ -322,10 +325,15 @@ export class AuthService {
       const purgeTime = deletionTime + 15 * 24 * 60 * 60 * 1000;
       if (Date.now() > purgeTime) {
         await this.userRepository.hardDeleteUser(user.id);
-        throw ErrorFactory.forbidden('Your account was permanently erased after the 15-day grace period.');
+        throw ErrorFactory.forbidden(
+          'Your account was permanently erased after the 15-day grace period.',
+        );
       }
 
-      const daysRemaining = Math.max(1, Math.ceil((purgeTime - Date.now()) / (1000 * 60 * 60 * 24)));
+      const daysRemaining = Math.max(
+        1,
+        Math.ceil((purgeTime - Date.now()) / (1000 * 60 * 60 * 24)),
+      );
       const tempToken = crypto.randomBytes(32).toString('hex');
       await this.redisClient.set(
         `restore:temp:${tempToken}`,
@@ -827,14 +835,16 @@ export class AuthService {
   ): Promise<AuthResponse> {
     const email = data.email.toLowerCase().trim();
     const user = await this.userRepository.findByEmailIncludingDeleted(email);
-    if (!user || !user.deletedAt) {
+    if (!user?.deletedAt) {
       throw ErrorFactory.badRequest('No pending account deletion found for this email.');
     }
 
     const purgeTime = user.deletedAt.getTime() + 15 * 24 * 60 * 60 * 1000;
     if (Date.now() > purgeTime) {
       await this.userRepository.hardDeleteUser(user.id);
-      throw ErrorFactory.forbidden('Your account was permanently erased after the 15-day grace period.');
+      throw ErrorFactory.forbidden(
+        'Your account was permanently erased after the 15-day grace period.',
+      );
     }
 
     // Cancel deletion and restore user status

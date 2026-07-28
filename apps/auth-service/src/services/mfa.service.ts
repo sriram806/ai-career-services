@@ -4,9 +4,9 @@ import { ErrorFactory } from '@ai-career-os/errors';
 
 import { Totp } from '../utils/totp';
 
+import type { OtpService } from './otp.service';
 import type { AuditRepository } from '../repositories/audit.repository';
 import type { MfaRepository, DbMfaSettings } from '../repositories/mfa.repository';
-import type { OtpService } from './otp.service';
 import type { Redis } from 'ioredis';
 
 export class MfaService {

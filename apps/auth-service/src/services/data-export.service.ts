@@ -41,7 +41,10 @@ export class DataExportService {
    * Generates a full personal data archive and emails it as a JSON attachment.
    * Rate limited to once every 24 hours per user.
    */
-  async requestExport(userId: string, context: { ipAddress: string | null; userAgent: string | null }): Promise<void> {
+  async requestExport(
+    userId: string,
+    context: { ipAddress: string | null; userAgent: string | null },
+  ): Promise<void> {
     // 0. Enforce 24-hour rate limit via Redis
     const cooldownKey = `data_export:cooldown:${userId}`;
     const ttl = await this.redisClient.ttl(cooldownKey);

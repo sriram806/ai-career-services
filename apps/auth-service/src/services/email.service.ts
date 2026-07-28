@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import type { Logger } from 'pino';
 import type { IEmailProvider, SendEmailResult } from '../providers/email.provider.interface';
+import type { Logger } from 'pino';
 
 export interface EmailOptions {
   to: string;
@@ -36,7 +36,8 @@ export class EmailService {
     this.provider = provider;
     this.logger = logger.child({ component: 'EmailService' });
     this.from = config.from;
-    const rawUrl = (config.frontendUrl || 'http://localhost:3000').split(',')[0] || 'http://localhost:3000';
+    const rawUrl =
+      (config.frontendUrl || 'http://localhost:3000').split(',')[0] || 'http://localhost:3000';
     this.frontendUrl = rawUrl.trim();
   }
 
@@ -117,7 +118,11 @@ export class EmailService {
   /**
    * Convenience helper to send verification link.
    */
-  async sendVerificationEmail(email: string, username: string, token: string): Promise<SendEmailResult> {
+  async sendVerificationEmail(
+    email: string,
+    username: string,
+    token: string,
+  ): Promise<SendEmailResult> {
     const verificationLink = `${this.frontendUrl}/verify-email?token=${token}`;
 
     return this.sendEmail({

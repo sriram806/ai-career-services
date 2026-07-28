@@ -48,14 +48,14 @@ export const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
 
-  // ─── Brevo SMTP Mailer ────────────────────────────
-  SMTP_HOST: z.string().min(1).default('smtp-relay.brevo.com'),
-  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  // ─── SMTP Mailer (Gmail / Relay) ──────────────────
+  SMTP_HOST: z.string().min(1).default('smtp.gmail.com'),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_SECURE: z
     .preprocess((val) => (typeof val === 'string' ? val.toLowerCase() === 'true' : Boolean(val)), z.boolean())
-    .default(false),
+    .default(true),
   SMTP_FROM: z.string().default('AI Career OS <boddusriram1234@gmail.com>'),
 
   // ─── GitHub OAuth Ingestion ──────────────────────

@@ -8,11 +8,12 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
-import Fastify from 'fastify';
 import swaggerUi from '@fastify/swagger-ui';
+import Fastify from 'fastify';
 
 // ─── Repositories ─────────────────────────────────
 import { AuthController } from './controllers/auth.controller';
+import { NodemailerProvider } from './providers';
 import { AuditRepository } from './repositories/audit.repository';
 import { LoginAttemptRepository } from './repositories/login-attempt.repository';
 import { MfaRepository } from './repositories/mfa.repository';
@@ -20,19 +21,17 @@ import { OAuthRepository } from './repositories/oauth.repository';
 import { OtpRepository } from './repositories/otp.repository';
 import { PasswordHistoryRepository } from './repositories/password-history.repository';
 import { PasswordResetRepository } from './repositories/password-reset.repository';
+import { RbacRepository } from './repositories/rbac.repository';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { SessionRepository } from './repositories/session.repository';
-import { UserRepository } from './repositories/user.repository';
-
 import { TrustedDeviceRepository } from './repositories/trusted-device.repository';
-import { RbacRepository } from './repositories/rbac.repository';
-
-import { NodemailerProvider } from './providers';
+import { UserRepository } from './repositories/user.repository';
 
 // ─── Services ─────────────────────────────────────
 import { registerAuthRoutes } from './routes/auth';
 import { healthRoutes } from './routes/health';
 import { AuthService } from './services/auth.service';
+import { DataExportService } from './services/data-export.service';
 import { EmailVerificationService } from './services/email-verification.service';
 import { EmailService } from './services/email.service';
 import { JwtService } from './services/jwt.service';
@@ -41,13 +40,9 @@ import { OAuthService } from './services/oauth.service';
 import { OtpService } from './services/otp.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { PasswordService } from './services/password.service';
-
-import { DataExportService } from './services/data-export.service';
 import { RbacService } from './services/rbac.service';
 import { SessionService } from './services/session.service';
 import { TrustedDeviceService } from './services/trusted-device.service';
-
-
 
 export async function buildApp(logger: any): Promise<any> {
   const config = getConfig();
@@ -245,12 +240,16 @@ export async function buildApp(logger: any): Promise<any> {
   app.decorate('trustedDeviceService', trustedDeviceService);
   app.decorate('mfaService', mfaService);
 
+  app.decorate('emailProvider', emailProvider);
+  app.decorate('emailService', emailService);
   app.decorate('rbacService', rbacService);
   app.decorate('oauthService', oauthService);
 
   // ─── Plugins & Security Middleware ──────────────
   await app.register(helmet, { contentSecurityPolicy: false });
-  const corsOrigins = config.CORS_ORIGIN ? config.CORS_ORIGIN.split(',').map((o) => o.trim()) : ['http://localhost:3000'];
+  const corsOrigins = config.CORS_ORIGIN
+    ? config.CORS_ORIGIN.split(',').map((o) => o.trim())
+    : ['http://localhost:3000'];
 
   await app.register(cors, {
     origin: corsOrigins,

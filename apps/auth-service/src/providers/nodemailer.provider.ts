@@ -1,12 +1,15 @@
+import * as dns from 'node:dns';
 import * as nodemailer from 'nodemailer';
 
 import type { IEmailProvider, SendEmailPayload, SendEmailResult } from './email.provider.interface';
-import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import type SMTPPool from 'nodemailer/lib/smtp-pool';
 import type { Logger } from 'pino';
 
 export class NodemailerProvider implements IEmailProvider {
   private readonly transporter: nodemailer.Transporter;
   private readonly logger: Logger;
+  private readonly host: string;
+  private readonly port: number;
 
   constructor(
     config: {
@@ -20,22 +23,48 @@ export class NodemailerProvider implements IEmailProvider {
   ) {
     this.logger = logger.child({ component: 'NodemailerProvider' });
 
-    const host = config.host || 'smtp.gmail.com';
-    const portNum = Number(config.port) || 587;
-    const isSecure = portNum === 465 || String(config.secure) === 'true';
+    this.host = config.host || 'smtp.gmail.com';
+    this.port = Number(config.port) || 465;
+    const isSecure = this.port === 465 || String(config.secure) === 'true';
 
-    const transportOptions: SMTPTransport.Options = {
-      host,
-      port: portNum,
+    // Custom IPv4 lookup resolver to prevent ENETUNREACH errors on cloud host environments (e.g. Render)
+    // where IPv6 addresses (2404:6800:...) are returned by DNS getaddrinfo but lack egress routing.
+    const customIpv4Lookup = (
+      hostname: string,
+      options: dns.LookupOptions,
+      callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
+    ) => {
+      const opts: dns.LookupOptions =
+        typeof options === 'object' && options !== null ? { ...options, family: 4 } : { family: 4 };
+      dns.lookup(hostname, opts, (err, address, family) => {
+        if (err) {
+          callback(err, '', 4);
+        } else {
+          callback(null, address as string, family);
+        }
+      });
+    };
+
+    const transportOptions: SMTPPool.Options & { family?: number; lookup?: any } = {
+      host: this.host,
+      port: this.port,
       secure: isSecure,
       requireTLS: !isSecure,
-      connectionTimeout: 15000,
+      // Enterprise Egress Fix: Enforce IPv4 socket connections
+      family: 4,
+      lookup: customIpv4Lookup,
+      // High-performance pooling & timeout controls
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      connectionTimeout: 10000,
       socketTimeout: 15000,
-      greetingTimeout: 15000,
-      dnsTimeout: 10000,
+      greetingTimeout: 10000,
+      dnsTimeout: 5000,
       tls: {
-        rejectUnauthorized: false,
+        rejectUnauthorized: process.env.NODE_ENV === 'production',
         minVersion: 'TLSv1.2',
+        servername: this.host,
       },
     };
 
@@ -46,20 +75,42 @@ export class NodemailerProvider implements IEmailProvider {
       };
     }
 
-    this.transporter = nodemailer.createTransport(transportOptions);
+    this.transporter = nodemailer.createTransport(transportOptions as nodemailer.TransportOptions);
 
-    // Verify SMTP connection on startup
-    this.transporter.verify((err) => {
-      if (err) {
-        // eslint-disable-next-line no-console
-        console.error('CRITICAL: SMTP Connection Verification Failed:', err);
-        this.logger.error({ err, host, port: portNum }, 'SMTP connection verification failed');
-      } else {
-        // eslint-disable-next-line no-console
-        console.log(`SUCCESS: SMTP connection verified successfully (${host}:${portNum})`);
-        this.logger.info({ host, port: portNum }, 'SMTP connection verified successfully');
-      }
-    });
+    // Non-blocking async SMTP verification on startup
+    void this.verifyConnectionSilently();
+  }
+
+  /**
+   * Verifies SMTP connection asynchronously without blocking server startup.
+   */
+  private async verifyConnectionSilently(): Promise<boolean> {
+    try {
+      await this.transporter.verify();
+      this.logger.info(
+        { host: this.host, port: this.port, family: 4 },
+        'SUCCESS: SMTP transport connection verified successfully (IPv4)',
+      );
+      return true;
+    } catch (err) {
+      this.logger.error(
+        { err: err as Error, host: this.host, port: this.port },
+        'CRITICAL: SMTP transport connection verification failed',
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Public health diagnostic helper.
+   */
+  async verifyConnection(): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.transporter.verify();
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || String(err) };
+    }
   }
 
   async sendEmail(payload: SendEmailPayload): Promise<SendEmailResult> {
@@ -95,8 +146,6 @@ export class NodemailerProvider implements IEmailProvider {
         provider: 'nodemailer-smtp',
       };
     } catch (err: unknown) {
-      // eslint-disable-next-line no-console
-      console.error(`CRITICAL: Failed to deliver email to ${payload.to} via SMTP:`, err);
       this.logger.error(
         { err: err as Error, recipient: payload.to, latencyMs: Date.now() - startTime },
         'Failed to deliver email via SMTP',
