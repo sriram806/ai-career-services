@@ -78,6 +78,18 @@ services:
           type: redis
           name: ai-career-redis
           property: connectionString
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        value: b38800001@smtp-brevo.com
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_FROM
+        value: AI Career OS <b38800001@smtp-brevo.com>
 
   # ─── API Gateway (Public Web Service) ──────────────────────
   - type: web

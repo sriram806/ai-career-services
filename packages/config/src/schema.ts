@@ -48,16 +48,16 @@ export const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
 
-  // ─── SMTP Mailer (Gmail / Relay) ──────────────────
-  SMTP_SERVICE: z.string().optional().default('gmail'),
-  SMTP_HOST: z.string().min(1).default('smtp.gmail.com'),
-  SMTP_PORT: z.coerce.number().int().positive().default(465),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
+  // ─── SMTP Mailer (Brevo Relay) ─────────────────────
+  SMTP_SERVICE: z.string().optional(),
+  SMTP_HOST: z.string().min(1).default('smtp-relay.brevo.com'),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().default('b38800001@smtp-brevo.com'),
+  SMTP_PASS: z.string().optional().default(''),
   SMTP_SECURE: z
     .preprocess((val) => (typeof val === 'string' ? val.toLowerCase() === 'true' : Boolean(val)), z.boolean())
-    .default(true),
-  SMTP_FROM: z.string().default('AI Career OS <boddusriram1234@gmail.com>'),
+    .default(false),
+  SMTP_FROM: z.string().default('AI Career OS <b38800001@smtp-brevo.com>'),
 
   // ─── GitHub OAuth Ingestion ──────────────────────
   GITHUB_CLIENT_ID: z.string().default('mock_github_client_id'),

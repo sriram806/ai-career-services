@@ -23,8 +23,9 @@ export class NodemailerProvider implements IEmailProvider {
   ) {
     this.logger = logger.child({ component: 'NodemailerProvider' });
 
-    this.host = config.host || 'smtp.gmail.com';
-    this.port = Number(config.port) || 465;
+    this.host = config.host || 'smtp-relay.brevo.com';
+    this.port = Number(config.port) || 587;
+    const isSecure = this.port === 465 || String(config.secure) === 'true';
 
     const cleanUser = config.user ? config.user.trim() : undefined;
     const cleanPass = config.pass ? config.pass.trim() : undefined;
@@ -32,7 +33,7 @@ export class NodemailerProvider implements IEmailProvider {
     this.transporter = nodemailer.createTransport({
       host: this.host,
       port: this.port,
-      service: config.service,
+      secure: isSecure,
       auth: cleanUser && cleanPass ? {
         user: cleanUser,
         pass: cleanPass,
@@ -77,7 +78,7 @@ export class NodemailerProvider implements IEmailProvider {
           subject: payload.subject,
           latencyMs: Date.now() - startTime,
         },
-        'Email delivered successfully via Nodemailer',
+        'Email delivered successfully via Nodemailer (Brevo SMTP)',
       );
 
       return {
