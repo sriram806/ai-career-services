@@ -89,7 +89,7 @@ export const mfaDisableSchema = z.object({
 
 // ─── OAuth Initiate ───────────────────────────────
 export const oauthInitiateSchema = z.object({
-  redirectUri: z.string().url().optional(),
+  redirectUri: z.union([z.string().url(), z.string().length(0)]).optional(),
   intent: z.enum(['login', 'register']).optional().default('login'),
 });
 

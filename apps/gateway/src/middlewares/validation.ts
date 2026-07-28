@@ -61,18 +61,22 @@ export async function validateRequestSecurity(
 
   // Content-Type validation for write methods
   if (['POST', 'PUT', 'PATCH'].includes(method)) {
-    if (!contentType) {
+    const isOAuthInitiate = Boolean(request.url && request.url.includes('/auth/oauth/'));
+
+    if (!contentType && !isOAuthInitiate) {
       throw ErrorFactory.badRequest('Missing Content-Type header for write request');
     }
 
-    const isJson = contentType.startsWith('application/json');
-    const isMultipart = contentType.startsWith('multipart/form-data');
-    const isUrlEncoded = contentType.startsWith('application/x-www-form-urlencoded');
+    if (contentType) {
+      const isJson = contentType.startsWith('application/json');
+      const isMultipart = contentType.startsWith('multipart/form-data');
+      const isUrlEncoded = contentType.startsWith('application/x-www-form-urlencoded');
 
-    if (!isJson && !isMultipart && !isUrlEncoded) {
-      throw ErrorFactory.badRequest(
-        `Unsupported Content-Type: ${contentType}. Allowed types: application/json, multipart/form-data, application/x-www-form-urlencoded`,
-      );
+      if (!isJson && !isMultipart && !isUrlEncoded) {
+        throw ErrorFactory.badRequest(
+          `Unsupported Content-Type: ${contentType}. Allowed types: application/json, multipart/form-data, application/x-www-form-urlencoded`,
+        );
+      }
     }
   }
 

@@ -106,7 +106,7 @@ export function gatewayErrorHandler(
     ) {
       code = ErrorCode.EXTERNAL_SERVICE_ERROR;
       status = 502;
-      message = error.message || 'Failed to communicate with upstream service';
+      message = 'Failed to communicate with upstream service';
     }
   }
 

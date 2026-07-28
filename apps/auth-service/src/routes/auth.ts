@@ -317,21 +317,36 @@ export function registerAuthRoutes(
   // ═══════════════════════════════════════════════════
 
   // OAuth Initiate routes
-  fastify.post('/auth/oauth/google', (req: any, rep: any) => {
-    req.params.provider = 'google';
+  const handleOauthInitiate = (provider: string) => (req: any, rep: any) => {
+    req.params = req.params || {};
+    req.params.provider = provider;
     return controller.oauthInitiate(req, rep);
+  };
+
+  fastify.route({
+    method: ['GET', 'POST'],
+    url: '/auth/oauth/google',
+    handler: handleOauthInitiate('google'),
   });
-  fastify.post('/auth/oauth/github', (req: any, rep: any) => {
-    req.params.provider = 'github';
-    return controller.oauthInitiate(req, rep);
+  fastify.route({
+    method: ['GET', 'POST'],
+    url: '/auth/oauth/github',
+    handler: handleOauthInitiate('github'),
   });
-  fastify.post('/auth/oauth/microsoft', (req: any, rep: any) => {
-    req.params.provider = 'microsoft';
-    return controller.oauthInitiate(req, rep);
+  fastify.route({
+    method: ['GET', 'POST'],
+    url: '/auth/oauth/microsoft',
+    handler: handleOauthInitiate('microsoft'),
   });
-  fastify.post('/auth/oauth/linkedin', (req: any, rep: any) => {
-    req.params.provider = 'linkedin';
-    return controller.oauthInitiate(req, rep);
+  fastify.route({
+    method: ['GET', 'POST'],
+    url: '/auth/oauth/linkedin',
+    handler: handleOauthInitiate('linkedin'),
+  });
+  fastify.route({
+    method: ['GET', 'POST'],
+    url: '/auth/oauth/:provider',
+    handler: (req: any, rep: any) => controller.oauthInitiate(req, rep),
   });
 
   // OAuth Callback route

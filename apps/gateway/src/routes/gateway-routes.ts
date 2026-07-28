@@ -137,6 +137,19 @@ export const gatewayRoutes: FastifyPluginCallback = (fastify: FastifyInstance, _
     proxyTo(config.AUTH_SERVICE_URL, 'auth-service'),
   );
 
+  // 2. User Service - Profile endpoints -> Moderate (60 requests/min)
+  fastify.all(
+    '/api/v1/profile/*',
+    {
+      config: { rateLimit: moderateLimit },
+      schema: {
+        description: 'User profile management endpoints',
+        tags: ['Profile'],
+      },
+    },
+    proxyTo(config.USER_SERVICE_URL, 'user-service'),
+  );
+
   done();
 };
 

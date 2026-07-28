@@ -408,24 +408,38 @@ export class AuthController {
   // ═══════════════════════════════════════════════════
 
   async oauthInitiate(request: FastifyRequest, reply: FastifyReply) {
-    const { provider } = request.params as { provider: string };
-    const payload = validate(oauthInitiateSchema, {
-      ...((request.query as Record<string, unknown>) ?? {}),
-      ...((request.body as Record<string, unknown>) ?? {}),
-    });
+    try {
+      const provider = (request.params as any)?.provider || 'google';
+      const queryObj = (request.query as Record<string, unknown>) ?? {};
+      const bodyObj = (request.body as Record<string, unknown>) ?? {};
 
-    const config = getConfig();
-    const defaultCallback =
-      config?.AUTH_OAUTH_REDIRECT_URI || 'http://localhost:4000/api/v1/auth/oauth/callback';
-    const redirectUri = payload.redirectUri || defaultCallback;
+      const rawRedirectUri = (queryObj['redirectUri'] as string) || (bodyObj['redirectUri'] as string) || undefined;
+      const rawIntent = (queryObj['intent'] as string) || (bodyObj['intent'] as string) || undefined;
 
-    const { authorizationUrl } = await this.oauthService.initiateFlow(
-      provider,
-      redirectUri,
-      payload.intent,
-    );
+      const payload = validate(oauthInitiateSchema, {
+        redirectUri: rawRedirectUri || undefined,
+        intent: rawIntent || undefined,
+      });
 
-    return reply.status(200).send(createSuccessResponse({ authorizationUrl }, request.id));
+      const config = getConfig();
+      const defaultCallback =
+        config?.AUTH_OAUTH_REDIRECT_URI || 'http://localhost:4000/api/v1/auth/oauth/callback';
+      const redirectUri = payload.redirectUri || defaultCallback;
+
+      const { authorizationUrl } = await this.oauthService.initiateFlow(
+        provider,
+        redirectUri,
+        payload.intent,
+      );
+
+      return reply.status(200).send(createSuccessResponse({ authorizationUrl }, request.id));
+    } catch (err: any) {
+      request.log.error({ err }, 'Failed to initiate OAuth flow');
+      if (err?.statusCode || err?.code) {
+        throw err;
+      }
+      throw ErrorFactory.internal(`OAuth initiation error: ${err?.message || String(err)}`);
+    }
   }
 
   async oauthCallback(request: FastifyRequest, reply: FastifyReply) {

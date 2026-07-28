@@ -280,6 +280,7 @@ describe('Auth Service Integration Tests', () => {
 
     // Stub repositories database responses
     vi.spyOn((app as any).userRepository, 'findByEmail').mockResolvedValue(mockUser);
+    vi.spyOn((app as any).userRepository, 'findByEmailIncludingDeleted').mockResolvedValue(mockUser);
     vi.spyOn((app as any).userRepository, 'getCredentialsByUserId').mockResolvedValue(mockCreds);
     vi.spyOn((app as any).userRepository, 'updateUser').mockResolvedValue(mockUser);
 
@@ -330,6 +331,7 @@ describe('Auth Service Integration Tests', () => {
     };
 
     vi.spyOn((app as any).userRepository, 'findByEmail').mockResolvedValue(mockUser);
+    vi.spyOn((app as any).userRepository, 'findByEmailIncludingDeleted').mockResolvedValue(mockUser);
     vi.spyOn((app as any).userRepository, 'getCredentialsByUserId').mockResolvedValue(mockCreds);
 
     const response = await app.inject({

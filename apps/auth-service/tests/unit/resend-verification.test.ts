@@ -41,6 +41,8 @@ describe('AuthController — Resend Verification', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
+      {} as any,
       mockUserRepository,
     );
   });
