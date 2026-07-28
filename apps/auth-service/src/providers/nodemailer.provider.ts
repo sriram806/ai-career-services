@@ -69,10 +69,13 @@ export class NodemailerProvider implements IEmailProvider {
       },
     };
 
-    if (config.user && config.pass) {
+    const cleanUser = config.user ? config.user.trim() : undefined;
+    const cleanPass = config.pass ? config.pass.trim().replace(/\s+/g, '') : undefined;
+
+    if (cleanUser && cleanPass) {
       transportOptions.auth = {
-        user: config.user,
-        pass: config.pass,
+        user: cleanUser,
+        pass: cleanPass,
       };
     }
 

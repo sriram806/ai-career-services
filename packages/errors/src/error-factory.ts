@@ -56,7 +56,8 @@ export class ErrorFactory {
   }
 
   static externalServiceError(service: string, cause?: Error): AppError {
-    return new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, `External service '${service}' failed`, {
+    const detailMsg = cause?.message ? `External service '${service}' failed: ${cause.message}` : `External service '${service}' failed`;
+    return new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, detailMsg, {
       cause,
     });
   }
