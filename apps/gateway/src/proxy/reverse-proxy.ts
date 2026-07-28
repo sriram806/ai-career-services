@@ -67,6 +67,7 @@ function recordFailure(serviceName: string) {
  *
  * Implements:
  * - Connection pooling (via `@fastify/reply-from` undici configuration)
+ * - Safe payload body serialization when preHandlers parse JSON bodies
  * - Retries with basic backoff for transient errors
  * - Circuit breaker patterns
  * - Request correlation ID propagation
@@ -83,9 +84,10 @@ export function proxyTo(serviceUrl: string, serviceName: string) {
     }
 
     // 2. Resolve target URL by appending the request path
-    // Remove the gateway API prefix (e.g. /api/v1/auth/login -> /auth/login)
+    // Remove leading/trailing slashes to avoid invalid URL formatting
+    const cleanServiceUrl = serviceUrl.replace(/\/+$/, '');
     const path = request.url.replace(/^\/api\/v1/, '');
-    const targetUrl = `${serviceUrl}${path}`;
+    const targetUrl = `${cleanServiceUrl}${path}`;
 
     // 3. Populate correlation, request, and client headers
     const headers: Record<string, string> = {
@@ -118,6 +120,13 @@ export function proxyTo(serviceUrl: string, serviceName: string) {
       headers['x-user-session-id'] = request.user.sessionId;
     }
 
+    // 5. Explicit body forwarding for parsed JSON payloads
+    let proxyBody: any = undefined;
+    if (request.body !== undefined && request.body !== null) {
+      proxyBody = typeof request.body === 'object' ? JSON.stringify(request.body) : request.body;
+      headers['content-type'] = headers['content-type'] || 'application/json';
+    }
+
     let attempt = 0;
     const maxRetries = 3;
 
@@ -125,15 +134,22 @@ export function proxyTo(serviceUrl: string, serviceName: string) {
       attempt++;
       return new Promise<void>((resolve, reject) => {
         void reply.from(targetUrl, {
+          body: proxyBody,
           rewriteRequestHeaders: (_req, reqHeaders) => {
-            return {
+            const merged = {
               ...reqHeaders,
               ...headers,
-            } as any;
+            };
+            // Delete content-length if we are passing a newly serialized string body
+            // to allow undici to compute the exact payload byte length
+            if (proxyBody !== undefined) {
+              delete (merged as any)['content-length'];
+            }
+            return merged as any;
           },
           onError: (_reply, error) => {
             const err = error.error;
-            const code = (err as any).code;
+            const code = (err as any)?.code;
 
             const isRetryable =
               code === 'ECONNRESET' ||
@@ -145,7 +161,7 @@ export function proxyTo(serviceUrl: string, serviceName: string) {
             if (attempt < maxRetries && isRetryable) {
               request.log.warn(
                 { err, attempt, targetUrl },
-                `Proxy request to ${serviceName} failed. Retrying...`,
+                `Proxy request to ${serviceName} failed (${code || err.message}). Retrying...`,
               );
               setTimeout(() => {
                 resolve(executeProxy());
@@ -168,7 +184,7 @@ export function proxyTo(serviceUrl: string, serviceName: string) {
       await executeProxy();
       return reply;
     } catch (err: any) {
-      request.log.error({ err, targetUrl }, `Failed to proxy request to ${serviceName}`);
+      request.log.error({ err, targetUrl, serviceName }, `Failed to proxy request to ${serviceName}: ${err.message}`);
       throw ErrorFactory.externalServiceError(serviceName, err);
     }
   };

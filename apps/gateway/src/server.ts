@@ -44,7 +44,7 @@ async function main(): Promise<void> {
 
   // ─── Start Server ─────────────────────────────────
   try {
-    const port = config.PORT;
+    const port = process.env.PORT ? Number(process.env.PORT) : config.PORT;
     await app.listen({ port, host: '0.0.0.0' });
     logger.info({ port, environment: config.NODE_ENV }, `${SERVICE_NAME} started`);
   } catch (err) {
