@@ -28,28 +28,27 @@ export class NodemailerProvider implements IEmailProvider {
     this.host = config.host || 'smtp.gmail.com';
     this.port = Number(config.port) || 465;
     const isSecure = this.port === 465 || String(config.secure) === 'true';
-    const serviceName = config.service || (this.host.includes('gmail') ? 'gmail' : undefined);
 
     // Custom IPv4 lookup resolver to prevent ENETUNREACH errors on cloud host environments (e.g. Render)
     // where IPv6 addresses (2404:6800:...) are returned by DNS getaddrinfo but lack egress routing.
+    // CRITICAL: We DO NOT pass `service: 'gmail'` in transportOptions because Nodemailer's built-in service
+    // preset engine overrides and strips custom `lookup` and `family: 4` socket properties!
     const customIpv4Lookup = (
       hostname: string,
-      options: dns.LookupOptions,
+      options: any,
       callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
     ) => {
-      const opts: dns.LookupOptions =
-        typeof options === 'object' && options !== null ? { ...options, family: 4 } : { family: 4 };
+      const opts = typeof options === 'object' && options !== null ? { ...options, family: 4 } : { family: 4 };
       dns.lookup(hostname, opts, (err, address, family) => {
         if (err) {
           callback(err, '', 4);
         } else {
-          callback(null, address as string, family);
+          callback(null, address as string, (family as number) || 4);
         }
       });
     };
 
-    const transportOptions: SMTPPool.Options & { family?: number; lookup?: any; service?: string } = {
-      ...(serviceName && { service: serviceName }),
+    const transportOptions: SMTPPool.Options & { family?: number; lookup?: any } = {
       host: this.host,
       port: this.port,
       secure: isSecure,
