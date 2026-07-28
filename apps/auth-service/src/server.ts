@@ -1,5 +1,3 @@
-import dns from 'node:dns';
-
 import { loadConfig } from '@ai-career-os/config';
 import { createLogger } from '@ai-career-os/logger';
 
@@ -8,11 +6,6 @@ import { buildApp } from './app';
 const SERVICE_NAME = 'auth-service';
 
 async function main(): Promise<void> {
-  // Enterprise Egress DNS Fix: Force Node.js getaddrinfo to prefer IPv4 over IPv6.
-  // Render containers lack public IPv6 routing, which causes ENETUNREACH when connecting to Gmail SMTP.
-  if (typeof dns.setDefaultResultOrder === 'function') {
-    dns.setDefaultResultOrder('ipv4first');
-  }
 
   const config = loadConfig();
   const logger = createLogger(SERVICE_NAME, {
