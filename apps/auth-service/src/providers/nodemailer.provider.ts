@@ -14,6 +14,7 @@ export class NodemailerProvider implements IEmailProvider {
 
   constructor(
     config: {
+      service?: string;
       host: string;
       port: number;
       user?: string;
@@ -27,6 +28,7 @@ export class NodemailerProvider implements IEmailProvider {
     this.host = config.host || 'smtp.gmail.com';
     this.port = Number(config.port) || 465;
     const isSecure = this.port === 465 || String(config.secure) === 'true';
+    const serviceName = config.service || (this.host.includes('gmail') ? 'gmail' : undefined);
 
     // Custom IPv4 lookup resolver to prevent ENETUNREACH errors on cloud host environments (e.g. Render)
     // where IPv6 addresses (2404:6800:...) are returned by DNS getaddrinfo but lack egress routing.
@@ -46,7 +48,8 @@ export class NodemailerProvider implements IEmailProvider {
       });
     };
 
-    const transportOptions: SMTPPool.Options & { family?: number; lookup?: any } = {
+    const transportOptions: SMTPPool.Options & { family?: number; lookup?: any; service?: string } = {
+      ...(serviceName && { service: serviceName }),
       host: this.host,
       port: this.port,
       secure: isSecure,

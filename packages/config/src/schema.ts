@@ -49,6 +49,7 @@ export const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
 
   // ─── SMTP Mailer (Gmail / Relay) ──────────────────
+  SMTP_SERVICE: z.string().optional().default('gmail'),
   SMTP_HOST: z.string().min(1).default('smtp.gmail.com'),
   SMTP_PORT: z.coerce.number().int().positive().default(465),
   SMTP_USER: z.string().optional(),

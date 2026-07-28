@@ -110,6 +110,7 @@ export async function buildApp(logger: any): Promise<any> {
   // ─── Service Layer ──────────────────────────────
   const emailProvider = new NodemailerProvider(
     {
+      service: config.SMTP_SERVICE,
       host: config.SMTP_HOST,
       port: config.SMTP_PORT,
       user: config.SMTP_USER,
